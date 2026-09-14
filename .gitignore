@@ -1,0 +1,19 @@
+.DS_Store
+__pycache__/
+*/__pycache__/
+*.pyc
+.matplotlib/
+logs*/
+runs/
+transformers/*.pkl
+
+# Local datasets and old imported archives
+ForChiara-OldData/
+imperial_muons-master/
+imperial_muons-master.tar.gz
+lhcb-steg-kstmumu-main/
+lhcb-steg-kstmumu-main.zip
+modules_installation-README.md
+
+# Branch-specific working copy kept out of main
+theranostics-steg/
