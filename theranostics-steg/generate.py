@@ -18,12 +18,6 @@ def generate_momenta(model, config, diffusion, quantile_transformers=None, batch
         for i, target in enumerate(quantile_transformers.keys()):
               samples_np[:,i] = quantile_transformers[target].inverse_transform(samples_np[:,i].reshape(-1,1)).flatten()
 
-    binary_features = getattr(config, "BINARY_FEATURE_NAMES", [])
-    for feature in binary_features:
-        if feature in config.FEATURE_NAMES:
-            feature_index = config.FEATURE_NAMES.index(feature)
-            samples_np[:, feature_index] = (samples_np[:, feature_index] >= 0.5).astype(float)
-
     fake_unscaled = torch.tensor(samples_np, dtype=torch.float32, device=device)
 
     return fake_unscaled, fake_scaled

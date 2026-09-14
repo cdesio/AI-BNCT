@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from config import Config
-from dataset import BNCTCsvDamageDataset, resolve_event_splits
+from dataset import TheranosticsPhotonDataset, resolve_event_splits
 from diffusion import Diffusion
 from model import MomentaDiffusionModel
 from plotting import plot_BDT_AUC_vs_epoch, plot_loss
@@ -44,13 +44,13 @@ def main():
         },
     )
 
-    train_dataset = BNCTCsvDamageDataset(
+    train_dataset = TheranosticsPhotonDataset(
         config,
         start=0,
         stop=train_split,
         input_scaler_flag=config.INPUT_SCALER_FLAG,
     )
-    val_dataset = BNCTCsvDamageDataset(
+    val_dataset = TheranosticsPhotonDataset(
         config,
         start=train_split,
         stop=val_split,
@@ -123,7 +123,7 @@ def main():
                 plot_distributions_flag=True,
             )
 
-            checkpoint_path = os.path.join(checkpoint_dir, f"bnct_model_epoch{epoch + 1}.pt")
+            checkpoint_path = os.path.join(checkpoint_dir, f"theranostics_model_epoch{epoch + 1}.pt")
             torch.save(model.state_dict(), checkpoint_path)
             print(f"Checkpoint saved: {checkpoint_path}")
 
@@ -147,7 +147,7 @@ def main():
             save_folder=save_folder_bdt_auc,
         )
 
-    final_model_path = f"{save_folder}/bnct_model_final.pt"
+    final_model_path = f"{save_folder}/theranostics_model_final.pt"
     torch.save(model.state_dict(), final_model_path)
     print(f"Training complete. Final model saved: {final_model_path}")
 
