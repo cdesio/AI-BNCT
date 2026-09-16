@@ -43,12 +43,11 @@ def slurm_header(stage, run_dir, prefix, hours, cpus, memory, email):
     return "\n".join(lines) + "\n\nset -euo pipefail\n"
 
 
-def geant4_setup():
-    return (
-        "module use /projects/b56v/software/modulefiles\n"
-        "module load geant4/11.3.0-lithium\n"
-        "source /projects/b56v/software/geant4-v11.3.0-lithium-install/bin/geant4.sh\n"
-    )
+def geant4_setup(args):
+    setup = f"module use {shell(args.modulefiles_dir)}\nmodule load {shell(args.geant4_module)}\n"
+    if args.geant4_sh:
+        setup += f"source {shell(args.geant4_sh)}\n"
+    return setup
 
 
 def make_macro(particle, events):
@@ -71,6 +70,8 @@ def make_dna_macro(threads):
 
 def make_scripts(args, run_dir, prefix):
     root = args.project_root
+    upstream_exe = args.upstream_exe or root / "bnct-voxel-ps/build/bnctVoxelPS"
+    dna_exe = args.dna_exe or root / "bnct-dna-simulation/build/rbe"
     phase_stem = run_dir / f"{prefix}_ps"
     phase_bin = phase_stem.with_suffix(".bin")
     phase_root = phase_stem.with_suffix(".root")
@@ -79,22 +80,22 @@ def make_scripts(args, run_dir, prefix):
 
     upstream = slurm_header("ps", run_dir, prefix, args.upstream_time, 1,
                             args.upstream_mem, args.mail_user)
-    upstream += geant4_setup()
+    upstream += geant4_setup(args)
     upstream += f"\ncd {shell(root)}\n"
-    upstream += f"test -x {shell(root / 'bnct-voxel-ps/build/bnctVoxelPS')}\n"
-    upstream += f"time {shell(root / 'bnct-voxel-ps/build/bnctVoxelPS')} "
+    upstream += f"test -x {shell(upstream_exe)}\n"
+    upstream += f"time {shell(upstream_exe)} "
     upstream += f"-mac {shell(run_dir / 'upstream.mac')} -out {shell(phase_stem)} -seed {args.seed}\n"
     upstream += f"test -s {shell(phase_bin)}\ntest -s {shell(phase_root)}\n"
 
     dna = slurm_header("dna", run_dir, prefix, args.dna_time, args.dna_cpus,
                        args.dna_mem, args.mail_user)
-    dna += geant4_setup()
+    dna += geant4_setup(args)
     dna += f"\ntest -s {shell(phase_bin)}\n"
     dna += f"test -f {shell(root / 'bnct-dna-simulation/geometryFiles' / SUGAR_NAME)}\n"
     dna += f"test -f {shell(root / 'bnct-dna-simulation/geometryFiles' / HISTONE_NAME)}\n"
-    dna += f"cd {shell(root / 'bnct-dna-simulation/build')}\n"
-    dna += "test -x ./rbe\n"
-    dna += f"time ./rbe -mac {shell(run_dir / 'dna.mac')} -in {shell(phase_bin)} -out {shell(dna_root)} -seed {args.seed}\n"
+    dna += f"cd {shell(dna_exe.parent)}\n"
+    dna += f"test -x {shell(dna_exe)}\n"
+    dna += f"time {shell(dna_exe)} -mac {shell(run_dir / 'dna.mac')} -in {shell(phase_bin)} -out {shell(dna_root)} -seed {args.seed}\n"
     dna += f"test -s {shell(dna_root)}\n"
 
     clustering = slurm_header("cluster", run_dir, prefix, args.clustering_time, 1,
@@ -154,9 +155,16 @@ def main():
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--name", help="Run label (default: particle name)")
     parser.add_argument("--project-root", type=Path, default=SOURCE_ROOT)
+    parser.add_argument("--upstream-exe", type=Path, help="Upstream executable (default: bnct-voxel-ps/build/bnctVoxelPS)")
+    parser.add_argument("--dna-exe", type=Path, help="DNA executable (default: bnct-dna-simulation/build/rbe)")
     parser.add_argument("--output-dir", type=Path, help="Directory for generated jobs and run outputs")
     parser.add_argument("--mail-user", default="yw18581@bristol.ac.uk")
     parser.add_argument("--damage-preset", choices=("alphaglue", "molecular-bnct"), default="alphaglue")
+    parser.add_argument("--modulefiles-dir", type=Path,
+                        default=Path("/projects/b56v/software/modulefiles"))
+    parser.add_argument("--geant4-module", default="geant4/11.3.0-lithium")
+    parser.add_argument("--geant4-sh", default="/projects/b56v/software/geant4-v11.3.0-lithium-install/bin/geant4.sh",
+                        help="Geant4 setup script; pass an empty string if the module sets the environment")
     parser.add_argument("--upstream-time", type=bc5_walltime, default="24:00:00")
     parser.add_argument("--dna-time", type=bc5_walltime, default="24:00:00")
     parser.add_argument("--clustering-time", type=bc5_walltime, default="08:00:00")
@@ -172,6 +180,10 @@ def main():
         parser.error("Run name must contain only letters, numbers, '_' or '-'")
     prefix = f"{name}_seed{args.seed}"
     args.project_root = args.project_root.resolve()
+    if args.upstream_exe:
+        args.upstream_exe = args.upstream_exe.resolve()
+    if args.dna_exe:
+        args.dna_exe = args.dna_exe.resolve()
     run_dir = (args.output_dir or args.project_root / "jobs" / prefix).resolve()
     if any(char.isspace() for char in str(args.project_root) + str(run_dir)):
         parser.error("Project and output paths cannot contain whitespace (SLURM log paths)")

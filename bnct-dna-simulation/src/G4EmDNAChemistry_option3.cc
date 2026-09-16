@@ -26,6 +26,7 @@
 
 
 #include "G4EmDNAChemistry_option3.hh"
+#include "G4Version.hh"
 
 #include "G4PhysicalConstants.hh"
 #include "G4SystemOfUnits.hh"
@@ -115,9 +116,11 @@ G4EmDNAChemistry_option3::G4EmDNAChemistry_option3() :
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
+#if G4VERSION_NUMBER < 1130
 G4EmDNAChemistry_option3::~G4EmDNAChemistry_option3()
 {
 }
+#endif
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
