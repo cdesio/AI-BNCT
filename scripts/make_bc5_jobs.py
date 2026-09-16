@@ -1,0 +1,191 @@
+"""Generate restartable BC5 jobs for voxel transport, DNA replay, and clustering."""
+
+import argparse
+from pathlib import Path
+import re
+import shlex
+
+
+SOURCE_ROOT = Path(__file__).resolve().parents[1]
+SUGAR_NAME = "sugarPos_n2_300nm_H75nm_R11nm_33hist_50deg.bin"
+HISTONE_NAME = "histonePos_n2_300nm_H75nm_R11nm_33hist_50deg.bin"
+
+
+def shell(value):
+    return shlex.quote(str(value))
+
+
+def bc5_walltime(value):
+    match = re.fullmatch(r"(?:(\d+)-)?(\d+):([0-5]\d):([0-5]\d)", value)
+    if not match:
+        raise argparse.ArgumentTypeError("Use HH:MM:SS or D-HH:MM:SS")
+    days, hours, minutes, seconds = (int(part or 0) for part in match.groups())
+    duration = days * 86400 + hours * 3600 + minutes * 60 + seconds
+    if not 0 < duration <= 86400:
+        raise argparse.ArgumentTypeError("BC5 walltime must be at most 24 hours")
+    return value
+
+
+def slurm_header(stage, run_dir, prefix, hours, cpus, memory, email):
+    lines = [
+        "#!/bin/bash --login",
+        f"#SBATCH --job-name={stage}_{prefix}",
+        f"#SBATCH --output={run_dir}/logs/{stage}.out.%J",
+        f"#SBATCH --error={run_dir}/logs/{stage}.err.%J",
+        f"#SBATCH --time={hours}",
+        "#SBATCH --nodes=1",
+        "#SBATCH --ntasks=1",
+        f"#SBATCH --cpus-per-task={cpus}",
+        f"#SBATCH --mem={memory}",
+    ]
+    if email:
+        lines.extend((f"#SBATCH --mail-user={email}", "#SBATCH --mail-type=FAIL,END"))
+    return "\n".join(lines) + "\n\nset -euo pipefail\n"
+
+
+def geant4_setup():
+    return (
+        "module use /projects/b56v/software/modulefiles\n"
+        "module load geant4/11.3.0-lithium\n"
+        "source /projects/b56v/software/geant4-v11.3.0-lithium-install/bin/geant4.sh\n"
+    )
+
+
+def make_macro(particle, events):
+    source = SOURCE_ROOT / "bnct-voxel-ps/macros" / f"{particle}_300nm_4x4x40.mac"
+    macro = source.read_text()
+    macro, count = re.subn(r"(?m)^/run/beamOn\s+\d+\s*$", f"/run/beamOn {events}", macro)
+    if count != 1:
+        raise ValueError(f"Expected one /run/beamOn command in {source}")
+    return macro.rstrip() + "\n"
+
+
+def make_dna_macro(threads):
+    source = SOURCE_ROOT / "bnct-dna-simulation/rbe_PS.in"
+    macro, count = re.subn(r"(?m)^/run/numberOfThreads\s+\d+\s*$",
+                           f"/run/numberOfThreads {threads}", source.read_text())
+    if count != 1:
+        raise ValueError(f"Expected one thread command in {source}")
+    return macro.rstrip() + "\n"
+
+
+def make_scripts(args, run_dir, prefix):
+    root = args.project_root
+    phase_stem = run_dir / f"{prefix}_ps"
+    phase_bin = phase_stem.with_suffix(".bin")
+    phase_root = phase_stem.with_suffix(".root")
+    dna_root = run_dir / f"{prefix}_dna.root"
+    damage_csv = run_dir / f"{prefix}_damage.csv"
+
+    upstream = slurm_header("ps", run_dir, prefix, args.upstream_time, 1,
+                            args.upstream_mem, args.mail_user)
+    upstream += geant4_setup()
+    upstream += f"\ncd {shell(root)}\n"
+    upstream += f"test -x {shell(root / 'bnct-voxel-ps/build/bnctVoxelPS')}\n"
+    upstream += f"time {shell(root / 'bnct-voxel-ps/build/bnctVoxelPS')} "
+    upstream += f"-mac {shell(run_dir / 'upstream.mac')} -out {shell(phase_stem)} -seed {args.seed}\n"
+    upstream += f"test -s {shell(phase_bin)}\ntest -s {shell(phase_root)}\n"
+
+    dna = slurm_header("dna", run_dir, prefix, args.dna_time, args.dna_cpus,
+                       args.dna_mem, args.mail_user)
+    dna += geant4_setup()
+    dna += f"\ntest -s {shell(phase_bin)}\n"
+    dna += f"test -f {shell(root / 'bnct-dna-simulation/geometryFiles' / SUGAR_NAME)}\n"
+    dna += f"test -f {shell(root / 'bnct-dna-simulation/geometryFiles' / HISTONE_NAME)}\n"
+    dna += f"cd {shell(root / 'bnct-dna-simulation/build')}\n"
+    dna += "test -x ./rbe\n"
+    dna += f"time ./rbe -mac {shell(run_dir / 'dna.mac')} -in {shell(phase_bin)} -out {shell(dna_root)} -seed {args.seed}\n"
+    dna += f"test -s {shell(dna_root)}\n"
+
+    clustering = slurm_header("cluster", run_dir, prefix, args.clustering_time, 1,
+                              args.clustering_mem, args.mail_user)
+    clustering += "if [[ -f \"$HOME/.bash_profile\" ]]; then source \"$HOME/.bash_profile\"; fi\n"
+    clustering += "conda activate clustering\n"
+    clustering += f"test -s {shell(dna_root)}\n"
+    clustering += f"cd {shell(root)}\n"
+    clustering += f"time python {shell(root / 'bnct-clustering/run.py')} {shell(dna_root)} "
+    clustering += f"--output {shell(damage_csv)} --seed {args.seed} "
+    clustering += f"--damage-preset {args.damage_preset}\n"
+    clustering += f"test -s {shell(damage_csv)}\n"
+    clustering += f"test -s {shell(run_dir / (prefix + '_damage_by_z.csv'))}\n"
+
+    launcher = """#!/bin/bash
+set -euo pipefail
+RUN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+start="${1:-upstream}"
+case "$start" in
+  upstream)
+    ps_job=$(sbatch --parsable "$RUN_DIR/upstream.sbatch")
+    ps_job=${ps_job%%;*}
+    echo "Submitted upstream: $ps_job"
+    ;;
+  dna|clustering) ;;
+  *) echo "Usage: $0 [upstream|dna|clustering]" >&2; exit 2 ;;
+esac
+if [[ "$start" != clustering ]]; then
+  if [[ "$start" == upstream ]]; then
+    dna_job=$(sbatch --parsable --dependency="afterok:$ps_job" "$RUN_DIR/dna.sbatch")
+  else
+    dna_job=$(sbatch --parsable "$RUN_DIR/dna.sbatch")
+  fi
+  dna_job=${dna_job%%;*}
+  echo "Submitted DNA: $dna_job"
+  cluster_job=$(sbatch --parsable --dependency="afterok:$dna_job" "$RUN_DIR/clustering.sbatch")
+else
+  cluster_job=$(sbatch --parsable "$RUN_DIR/clustering.sbatch")
+fi
+cluster_job=${cluster_job%%;*}
+echo "Submitted clustering: $cluster_job"
+"""
+    return {
+        "upstream.mac": make_macro(args.particle, args.events),
+        "dna.mac": make_dna_macro(args.dna_cpus),
+        "upstream.sbatch": upstream,
+        "dna.sbatch": dna,
+        "clustering.sbatch": clustering,
+        "submit_all.sh": launcher,
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--particle", choices=("alpha", "lithium"), required=True)
+    parser.add_argument("--events", type=int, required=True, help="Number of upstream primaries")
+    parser.add_argument("--seed", type=int, required=True)
+    parser.add_argument("--name", help="Run label (default: particle name)")
+    parser.add_argument("--project-root", type=Path, default=SOURCE_ROOT)
+    parser.add_argument("--output-dir", type=Path, help="Directory for generated jobs and run outputs")
+    parser.add_argument("--mail-user", default="yw18581@bristol.ac.uk")
+    parser.add_argument("--damage-preset", choices=("alphaglue", "molecular-bnct"), default="alphaglue")
+    parser.add_argument("--upstream-time", type=bc5_walltime, default="24:00:00")
+    parser.add_argument("--dna-time", type=bc5_walltime, default="24:00:00")
+    parser.add_argument("--clustering-time", type=bc5_walltime, default="08:00:00")
+    parser.add_argument("--upstream-mem", default="16GB")
+    parser.add_argument("--dna-mem", default="100GB")
+    parser.add_argument("--clustering-mem", default="32GB")
+    parser.add_argument("--dna-cpus", type=int, default=4)
+    args = parser.parse_args()
+    if args.events <= 0 or args.seed <= 0 or args.dna_cpus <= 0:
+        parser.error("Events, seed, and DNA CPUs must be positive")
+    name = args.name or args.particle
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", name):
+        parser.error("Run name must contain only letters, numbers, '_' or '-'")
+    prefix = f"{name}_seed{args.seed}"
+    args.project_root = args.project_root.resolve()
+    run_dir = (args.output_dir or args.project_root / "jobs" / prefix).resolve()
+    if any(char.isspace() for char in str(args.project_root) + str(run_dir)):
+        parser.error("Project and output paths cannot contain whitespace (SLURM log paths)")
+    scripts = make_scripts(args, run_dir, prefix)
+    run_dir.mkdir(parents=True, exist_ok=False)
+    (run_dir / "logs").mkdir()
+    for name, content in scripts.items():
+        target = run_dir / name
+        target.write_text(content)
+        if name == "submit_all.sh":
+            target.chmod(0o755)
+    print(f"Created {run_dir}")
+    print(f"Submit: {run_dir / 'submit_all.sh'}")
+
+
+if __name__ == "__main__":
+    main()
