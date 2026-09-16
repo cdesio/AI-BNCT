@@ -1,0 +1,19 @@
+Parameters:
+
+model type =  fractal
+n =  2
+voxelheightStraight =  75
+nhistonesStraight =  33
+voxelheightTurn =  75
+nhistonesTurn =  33
+radius =  11
+histone_angle =  50
+
+density =  0.011156296296296296
+box size =  300.0 nm
+straight segments =  4 turn segments =  31 turn twist segments =  29
+number histones =  1512
+packing fraction =  4.337698106518361  nucleosomes per 11 nm
+packing fraction (straight segments)=  4.84  nucleosomes per 11 nm
+packing fraction (turn segments)=  4.295061397573282  nucleosomes per 11 nm
+Number of base pairs 301220

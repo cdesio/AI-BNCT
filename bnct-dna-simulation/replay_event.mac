@@ -1,0 +1,21 @@
+/control/verbose 2
+/run/verbose 2
+
+# لا تضعي عدد ثريدات كبير هنا عشان التشخيص
+/run/numberOfThreads 1
+
+# حمّلي إعداداتك الأساسية (نفس الديتكتور والوحدات)
+/det/setSize 300 nm
+/det/dkill 9 nm
+
+# نفس محرك العشوائية
+/random/setEngineName MersenneTwister
+# ضعي بذور الحدث الذي علّق عندك (مثال من لوجك)
+/random/setSeeds 23188974 22864762
+
+/run/initialize
+/geometry/navigator/check_mode true
+/event/verbose 2
+/tracking/verbose 1
+/run/printProgress 1
+/run/beamOn 1
