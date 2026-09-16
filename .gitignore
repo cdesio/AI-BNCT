@@ -6,9 +6,19 @@ __pycache__/
 logs*/
 runs/
 transformers/*.pkl
+build/
+*/build/
+*.root
+*.pcm
+*.d
+*.so
+*.dylib
+*.a
+*.o
 
 # Local datasets and old imported archives
 ForChiara-OldData/
+ForChiara-OldData.zip
 imperial_muons-master/
 imperial_muons-master.tar.gz
 lhcb-steg-kstmumu-main/
@@ -17,3 +27,8 @@ modules_installation-README.md
 
 # Branch-specific working copy kept out of main
 theranostics-steg/
+
+# Local Geant4 run products
+bnct-voxel-ps/*.bin
+bnct-voxel-ps/build/
+bnct-dna-simulation/build/
