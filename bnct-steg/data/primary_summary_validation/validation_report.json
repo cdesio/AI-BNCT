@@ -1,14 +1,26 @@
 {
-    "rows": 15510,
-    "files": 20,
-    "damaged_primaries": 1274,
-    "damage_fraction": 0.08214055448098001,
+    "rows": 36750,
+    "files": 44,
+    "damaged_primaries": 2618,
+    "damage_fraction": 0.07123809523809524,
     "issues": [
         {
             "severity": "warning",
+            "check": "rows_do_not_match_expected_primaries",
+            "count": 2,
+            "detail": "alpha1p47_10um_Extracellular_600.root: rows=570, expected=600; alpha1p78_17um_Extracellular_600.root: rows=450, expected=600"
+        },
+        {
+            "severity": "warning",
             "check": "large_chunk_median_distance_to_track",
-            "count": 16,
+            "count": 39,
             "detail": "threshold=0.5 um"
+        },
+        {
+            "severity": "warning",
+            "check": "classification_damage_chunk_delta_nonzero",
+            "count": 9690,
+            "detail": ""
         }
     ],
     "passed": true

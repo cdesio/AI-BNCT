@@ -7,18 +7,18 @@ from sklearn.preprocessing import QuantileTransformer
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from config import Config  # noqa: E402
-from dataset import load_bnct_csv_damage  # noqa: E402
+from config import make_config  # noqa: E402
+from dataset import load_configured_data  # noqa: E402
 
 
 def main():
-    config = Config()
-    df = load_bnct_csv_damage(config, start=0, stop=config.TOTAL_EVENTS)
+    config = make_config()
+    df = load_configured_data(config, start=0, stop=config.TOTAL_EVENTS)
 
     total_events = len(df)
     train_split = int(0.7 * total_events)
     val_split = int(0.85 * total_events)
-    print(f"Loaded {total_events} filtered BNCT CSV rows")
+    print(f"Loaded {total_events} filtered BNCT rows from DATA_MODE={config.DATA_MODE}")
     print(
         "Split sizes: "
         f"train={train_split}, "

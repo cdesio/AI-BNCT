@@ -5,13 +5,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import torch
 
-from config import Config
 from colours import cmap_cyan_orange
-
-config = Config()
-
-# 4-momenta feature names
-momenta_names = config.FEATURE_NAMES
 
 def get_plot_range(values, nsigma=3):
     """
@@ -33,7 +27,7 @@ def get_plot_range(values, nsigma=3):
 #         [lower_q, upper_q]
 #     )
 
-def plot_distributions(real, fake, epoch, suffix="", save_folder=None):
+def plot_distributions(real, fake, epoch, suffix="", save_folder=None, feature_names=None):
     """
     Plot histogram distributions of real vs fake 4-momenta.
     """
@@ -46,7 +40,10 @@ def plot_distributions(real, fake, epoch, suffix="", save_folder=None):
 
     with PdfPages(pdf_path) as pdf:
 
-        for i, name in enumerate(momenta_names):
+        if feature_names is None:
+            feature_names = [f"feature_{i}" for i in range(real.shape[1])]
+
+        for i, name in enumerate(feature_names):
 
             real_feat = real[:, i]
             fake_feat = fake[:, i]
@@ -87,14 +84,17 @@ def plot_loss(loss, epoch, save_folder=None):
     plt.savefig(save_path)
     plt.close()
 
-def plot_predicted_vs_true(real, fake, epoch, suffix="", save_folder=None, bins=100): # This I'm pretty sure is useless as we just see the 1d histograms swept out by 90 degrees but will leave in just in case
+def plot_predicted_vs_true(real, fake, epoch, suffix="", save_folder=None, bins=100, feature_names=None): # This I'm pretty sure is useless as we just see the 1d histograms swept out by 90 degrees but will leave in just in case
     """
     For each 4-momenta feature, plot a 2D histogram where:
         x-axis = generated/fake values
         y-axis = real values
     Shows where the model over/under-predicts.
     """
-    for i, name in enumerate(momenta_names):
+    if feature_names is None:
+        feature_names = [f"feature_{i}" for i in range(real.shape[1])]
+
+    for i, name in enumerate(feature_names):
         real_feat = real[:, i]
         fake_feat = fake[:, i]
 
@@ -123,12 +123,13 @@ def plot_predicted_vs_true(real, fake, epoch, suffix="", save_folder=None, bins=
         plt.close()
 
 
-def plot_2d_momenta_pairs(real, fake, epoch, suffix="", save_folder=None, scaled=False, bins=100):
+def plot_2d_momenta_pairs(real, fake, epoch, suffix="", save_folder=None, scaled=False, bins=100, feature_names=None):
     """
     Same as before, but saves ALL plots into a single multi-page PDF.
     """
 
-    particle_names = ["H1", "H2", "L1", "L2"]
+    if feature_names is None:
+        feature_names = [f"feature_{i}" for i in range(real.shape[1])]
 
     pdf_path = (
         f"{save_folder}/momenta_2d_histograms_epoch_{epoch}{suffix}.pdf"
@@ -138,14 +139,9 @@ def plot_2d_momenta_pairs(real, fake, epoch, suffix="", save_folder=None, scaled
 
     with PdfPages(pdf_path) as pdf:
 
-        for p_idx, pname in enumerate(particle_names):
-            base = p_idx * 4
-
-            for i in range(4):
-                for j in range(i+1, 4):
-
-                    idx_i = base + i
-                    idx_j = base + j
+        n_features = min(len(feature_names), real.shape[1])
+        for idx_i in range(n_features):
+            for idx_j in range(idx_i + 1, n_features):
 
                     real_a = real[:, idx_i]
                     real_b = real[:, idx_j]
@@ -191,18 +187,18 @@ def plot_2d_momenta_pairs(real, fake, epoch, suffix="", save_folder=None, scaled
                                        cmap='viridis')
                     # _, _, _, im0 = ax[0].hist2d(real_a, real_b, bins=bins, range=hist_range, cmap="viridis")
                     fig.colorbar(im0, ax=ax[0])
-                    ax[0].set_title(f"{pname} Real: {momenta_names[idx_i]} vs {momenta_names[idx_j]}")
-                    ax[0].set_xlabel(momenta_names[idx_i])
-                    ax[0].set_ylabel(momenta_names[idx_j])
+                    ax[0].set_title(f"Real: {feature_names[idx_i]} vs {feature_names[idx_j]}")
+                    ax[0].set_xlabel(feature_names[idx_i])
+                    ax[0].set_ylabel(feature_names[idx_j])
 
                     im1 = ax[1].imshow(H_fake.T, origin='lower', aspect='auto',
                                        extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
                                        cmap='viridis')
                     # _, _, _, im1 = ax[1].hist2d(fake_a, fake_b, bins=bins, range=hist_range, cmap="viridis")
                     fig.colorbar(im1, ax=ax[1])
-                    ax[1].set_title(f"{pname} Gen: {momenta_names[idx_i]} vs {momenta_names[idx_j]}")
-                    ax[1].set_xlabel(momenta_names[idx_i])
-                    ax[1].set_ylabel(momenta_names[idx_j])
+                    ax[1].set_title(f"Gen: {feature_names[idx_i]} vs {feature_names[idx_j]}")
+                    ax[1].set_xlabel(feature_names[idx_i])
+                    ax[1].set_ylabel(feature_names[idx_j])
 
                     if not scaled:
                         ax[0].set_xlim(x_min, x_max)
@@ -251,7 +247,7 @@ def plot_BDT_AUC_vs_epoch(BDT_train, BDT_val, epoch, checkpoint_interval, save_f
     plt.savefig(save_path)
     plt.close()
 
-def plot_corr_matrix(real, fake, epoch, suffix="", save_folder=None):
+def plot_corr_matrix(real, fake, epoch, suffix="", save_folder=None, feature_names=None):
 
     if torch.is_tensor(real):
         real = real.cpu().numpy()
@@ -262,6 +258,8 @@ def plot_corr_matrix(real, fake, epoch, suffix="", save_folder=None):
     corr_fake = np.corrcoef(fake, rowvar=False)
 
     diff = corr_fake - corr_real
+    if feature_names is None:
+        feature_names = [f"feature_{i}" for i in range(real.shape[1])]
 
     pdf_path = (
         f"{save_folder}/correlation_matrices_epoch_{epoch}{suffix}.pdf"
@@ -275,10 +273,10 @@ def plot_corr_matrix(real, fake, epoch, suffix="", save_folder=None):
         im = ax.imshow(corr_real, vmin=-1, vmax=1, cmap=cmap_cyan_orange)
         plt.colorbar(im, ax=ax)
 
-        ax.set_xticks(range(len(momenta_names)))
-        ax.set_yticks(range(len(momenta_names)))
-        ax.set_xticklabels(momenta_names, rotation=90)
-        ax.set_yticklabels(momenta_names)
+        ax.set_xticks(range(len(feature_names)))
+        ax.set_yticks(range(len(feature_names)))
+        ax.set_xticklabels(feature_names, rotation=90)
+        ax.set_yticklabels(feature_names)
 
         ax.set_title("Correlation Matrix - Real")
 
@@ -292,10 +290,10 @@ def plot_corr_matrix(real, fake, epoch, suffix="", save_folder=None):
         im = ax.imshow(corr_fake, vmin=-1, vmax=1, cmap=cmap_cyan_orange)
         plt.colorbar(im, ax=ax)
 
-        ax.set_xticks(range(len(momenta_names)))
-        ax.set_yticks(range(len(momenta_names)))
-        ax.set_xticklabels(momenta_names, rotation=90)
-        ax.set_yticklabels(momenta_names)
+        ax.set_xticks(range(len(feature_names)))
+        ax.set_yticks(range(len(feature_names)))
+        ax.set_xticklabels(feature_names, rotation=90)
+        ax.set_yticklabels(feature_names)
 
         ax.set_title("Correlation Matrix - Fake")
 
@@ -309,10 +307,10 @@ def plot_corr_matrix(real, fake, epoch, suffix="", save_folder=None):
         im = ax.imshow(diff, vmin=-1, vmax=1, cmap=cmap_cyan_orange)
         plt.colorbar(im, ax=ax)
 
-        ax.set_xticks(range(len(momenta_names)))
-        ax.set_yticks(range(len(momenta_names)))
-        ax.set_xticklabels(momenta_names, rotation=90)
-        ax.set_yticklabels(momenta_names)
+        ax.set_xticks(range(len(feature_names)))
+        ax.set_yticks(range(len(feature_names)))
+        ax.set_xticklabels(feature_names, rotation=90)
+        ax.set_yticklabels(feature_names)
 
         ax.set_title("Correlation Difference (Fake - Real)")
 

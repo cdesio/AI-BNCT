@@ -3,15 +3,16 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from config import Config
-from dataset import load_bnct_csv_damage, resolve_event_splits
+from config import make_config
+from dataset import load_configured_data, resolve_event_splits
 
 
 def main():
-    config = Config()
-    df = load_bnct_csv_damage(config, start=0, stop=config.TOTAL_EVENTS)
+    config = make_config()
+    df = load_configured_data(config, start=0, stop=config.TOTAL_EVENTS)
     total_events, train_split, val_split = resolve_event_splits(config)
 
+    print(f"DATA_MODE: {config.DATA_MODE}")
     print(f"Rows: {len(df)}")
     print(
         "Split sizes: "

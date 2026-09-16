@@ -67,8 +67,18 @@ def parse_args():
         action="store_true",
         help=(
             "Keep files where classification rows and reconstructed damage chunks differ. "
-            "By default these files are skipped."
+            "This is now the default; the flag is kept for backward-compatible commands."
         ),
+    )
+    parser.add_argument(
+        "--strict-classification-match",
+        action="store_true",
+        help="Skip files where classification rows and reconstructed damage chunks differ.",
+    )
+    parser.add_argument(
+        "--strict-primary-count",
+        action="store_true",
+        help="Skip files where the filename primary count does not match primary_source rows.",
     )
     return parser.parse_args()
 
@@ -164,7 +174,26 @@ def add_damage_chunk_id(damage_df):
 
 def summarize_damage_chunks(damage_with_chunks):
     if len(damage_with_chunks) == 0:
-        return pd.DataFrame()
+        return pd.DataFrame(
+            columns=[
+                "DamageChunk_ID",
+                "Event",
+                "DamageRows",
+                "RecordedEnergyDeposited_eV",
+                "MaxStepEnergyDeposited_eV",
+                "MeanStepEnergyDeposited_eV",
+                "SumBaseDamage",
+                "SumStrandDamage",
+                "SumDirectBreaks",
+                "SumIndirectBreaks",
+                "MeanDamageStepX_um",
+                "MeanDamageStepY_um",
+                "MeanDamageStepZ_um",
+                "MinDamageStepRadius_um",
+                "MeanDamageStepRadius_um",
+                "MaxDamageStepRadius_um",
+            ]
+        )
 
     chunk_summary = (
         damage_with_chunks.groupby("DamageChunk_ID", as_index=False, sort=True)
@@ -266,7 +295,11 @@ def severity_from_counts(row):
     return 1
 
 
-def build_primary_summary_for_file(path, allow_classification_mismatch=False):
+def build_primary_summary_for_file(
+    path,
+    allow_classification_mismatch=True,
+    strict_primary_count=False,
+):
     metadata = parse_metadata_from_filename(path)
     root_file = uproot.open(path)
 
@@ -274,7 +307,8 @@ def build_primary_summary_for_file(path, allow_classification_mismatch=False):
     classification_df = tree_to_frame(root_file, "classification", CLASSIFICATION_COLUMNS)
     damage_df = tree_to_frame(root_file, "damage", DAMAGE_COLUMNS)
 
-    if len(primary_df) != metadata["ExpectedPrimaries"]:
+    primary_count_matches = len(primary_df) == metadata["ExpectedPrimaries"]
+    if strict_primary_count and not primary_count_matches:
         raise ValueError(
             f"{path}: filename says {metadata['ExpectedPrimaries']} primaries, "
             f"but primary_source has {len(primary_df)} rows"
@@ -386,11 +420,22 @@ def build_primary_summary_for_file(path, allow_classification_mismatch=False):
         "DSBpp",
     ]
     output[zero_fill] = output[zero_fill].fillna(0.0)
+    for column in zero_fill:
+        output[column] = pd.to_numeric(output[column], errors="coerce").fillna(0.0)
     output["ClassificationMatchStatus"] = output["ClassificationMatchStatus"].fillna("no_damage")
     output["ClassificationRowsInFile"] = classification_rows
     output["DamageChunksInFile"] = damage_chunks
     output["ClassificationDamageChunkDelta"] = classification_rows - damage_chunks
+    output["PrimaryRowsInFile"] = len(primary_df)
+    output["PrimaryCountMatchesFilename"] = primary_count_matches
     output["HasDamage"] = (output["DamageChunkCount"] > 0).astype(int)
+    output["HasDamageKnown"] = 1
+    output["DamageLabelQuality"] = np.where(
+        output["ClassificationDamageChunkDelta"] == 0,
+        "exact_damage_classification_match",
+        "damage_tree_geometry_assignment",
+    )
+    output.loc[output["DamageChunkCount"] == 0, "DamageLabelQuality"] = "no_damage_recorded"
     output["DamageSeverity"] = output.apply(severity_from_counts, axis=1).astype(int)
     output["LogRecordedEnergyDeposited_eV"] = np.log1p(output["RecordedEnergyDeposited_eV"])
     return output
@@ -409,7 +454,11 @@ def main():
         try:
             summary = build_primary_summary_for_file(
                 path,
-                allow_classification_mismatch=args.allow_classification_mismatch,
+                allow_classification_mismatch=(
+                    args.allow_classification_mismatch
+                    or not args.strict_classification_match
+                ),
+                strict_primary_count=args.strict_primary_count,
             )
         except Exception as exc:
             print(f"skip {path}: {exc}")

@@ -155,7 +155,7 @@ def validate_file_counts(df, issues):
     mismatched = per_file[per_file["Rows"] != per_file["ExpectedPrimaries"]]
     add_issue(
         issues,
-        "error",
+        "warning",
         "rows_do_not_match_expected_primaries",
         len(mismatched),
         "; ".join(

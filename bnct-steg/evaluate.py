@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from config import Config
+from config import make_config
 from dataset import BNCTCsvDamageDataset, resolve_event_splits
 from model import MomentaDiffusionModel
 from run_paths import create_eval_run_dir, resolve_train_run_dir, write_run_metadata
@@ -27,7 +27,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    config = Config()
+    config = make_config()
     train_run_dir = resolve_train_run_dir(config, args.run_dir)
     save_folder = create_eval_run_dir(train_run_dir)
     total_events, train_split, val_split = resolve_event_splits(config)

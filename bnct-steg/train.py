@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from config import Config
+from config import make_config
 from dataset import BNCTCsvDamageDataset, resolve_event_splits
 from diffusion import Diffusion
 from model import MomentaDiffusionModel
@@ -20,7 +20,7 @@ from validate import run_validation
 
 def main():
     time0 = time.time()
-    config = Config()
+    config = make_config()
     total_events, train_split, val_split = resolve_event_splits(config)
 
     save_folder = create_train_run_dir(config)

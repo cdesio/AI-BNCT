@@ -72,13 +72,32 @@ python scripts/inspect_primary_summary.py data/bnct_primary_summary.csv
 python scripts/validate_primary_summary.py data/bnct_primary_summary.csv
 ```
 
-By default, files are skipped if the number of reconstructed consecutive damage
-chunks does not match the number of classification rows. To keep those files
-with an explicit fallback assignment status:
+By default, this keeps all primary rows available in `primary_source`, including
+files where classification rows do not exactly match reconstructed damage chunks.
+Those rows are annotated with `ClassificationDamageChunkDelta`,
+`PrimaryCountMatchesFilename`, and `DamageLabelQuality` so they can be filtered
+later if needed. To reproduce a stricter build:
 
 ```bash
-python scripts/build_primary_summary.py --allow-classification-mismatch
+python scripts/build_primary_summary.py \
+  --strict-classification-match \
+  --strict-primary-count
 ```
+
+For newer MolecularBNCT ROOT files produced with all-primary tracking enabled,
+build both a primary-level summary and a per-step table:
+
+```bash
+python scripts/build_tracked_primary_dataset.py \
+  --input-glob "/Users/yw18581/work/MolecularBNCT-main/bnct_campaign/*.root" \
+  --primary-output data/bnct_tracked_primary_summary.csv \
+  --step-output data/bnct_primary_track_steps.csv
+```
+
+The tracked ROOT format is preferred for future datasets because
+`primary_source`, `primary_tracks`, `damage`, and `classification` can be joined
+directly with `EventID` and `SeedID`, avoiding the old damage-chunk matching
+workaround.
 
 Train primary-level damage prediction baselines:
 
@@ -95,6 +114,28 @@ current files. To run an intentionally diagnostic leaky model:
 ```bash
 python scripts/train_primary_damage_baseline.py --include-damage-tree-features
 ```
+
+Run the StEG-like diffusion smoke test on the primary-level geometry features:
+
+```bash
+BNCT_CONFIG=primary_geometry python transformers/fit_quantile_transformer.py
+
+BNCT_CONFIG=primary_geometry \
+BNCT_DEVICE=cpu \
+BNCT_EPOCHS=1 \
+BNCT_CHECKPOINT_INTERVAL=1 \
+BNCT_TOTAL_EVENTS=5000 \
+BNCT_RUN_TAG=bnct_primary_geometry_smoke \
+python train.py
+
+BNCT_CONFIG=primary_geometry \
+BNCT_TOTAL_EVENTS=5000 \
+python evaluate.py --run-dir runs/<train-run>
+```
+
+For a longer GPU run, set `BNCT_DEVICE` to the appropriate PyTorch device in
+your environment and increase `BNCT_EPOCHS`, `BNCT_TOTAL_EVENTS`, and optionally
+`BNCT_NOISE_STEPS`.
 
 Inspect the available rows and feature ranges:
 

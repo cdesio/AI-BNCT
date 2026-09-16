@@ -53,11 +53,41 @@ def load_bnct_csv_damage(config, start=0, stop=None):
     return data.reset_index(drop=True)
 
 
+def load_primary_summary(config, start=0, stop=None):
+    df = pd.read_csv(config.PRIMARY_SUMMARY_PATH)
+    missing = [feature for feature in config.FEATURE_NAMES if feature not in df.columns]
+    if missing:
+        raise KeyError(
+            f"{config.PRIMARY_SUMMARY_PATH} is missing configured features: {missing}"
+        )
+
+    df = df[config.FEATURE_NAMES].copy()
+    for binary_feature in getattr(config, "BINARY_FEATURE_NAMES", []):
+        if binary_feature in df.columns:
+            df[binary_feature] = (df[binary_feature].astype(float) > 0.5).astype(float)
+
+    data = df.replace([np.inf, -np.inf], np.nan).dropna()
+    if stop is not None:
+        data = data.iloc[:stop]
+    if start:
+        data = data.iloc[start:]
+    return data.reset_index(drop=True)
+
+
+def load_configured_data(config, start=0, stop=None):
+    data_mode = getattr(config, "DATA_MODE", "csv_damage")
+    if data_mode == "csv_damage":
+        return load_bnct_csv_damage(config, start=start, stop=stop)
+    if data_mode == "primary_summary":
+        return load_primary_summary(config, start=start, stop=stop)
+    raise ValueError(f"Unsupported DATA_MODE={data_mode!r}")
+
+
 def resolve_event_splits(config):
-    data = load_bnct_csv_damage(config, stop=config.TOTAL_EVENTS)
+    data = load_configured_data(config, stop=config.TOTAL_EVENTS)
     total_events = len(data)
     if total_events == 0:
-        raise ValueError("No BNCT CSV rows remain after finite-value filtering.")
+        raise ValueError("No BNCT rows remain after finite-value filtering.")
 
     train_split = int(0.7 * total_events)
     val_split = int(0.85 * total_events)
@@ -75,7 +105,7 @@ class BNCTCsvDamageDataset(IterableDataset):
         self.config = config
         self.features = config.FEATURE_NAMES
         self.step = config.STEP_SIZE
-        self.data = load_bnct_csv_damage(config, start=start, stop=stop)
+        self.data = load_configured_data(config, start=start, stop=stop)
 
         self.input_scaler_flag = input_scaler_flag
         if self.input_scaler_flag:

@@ -68,10 +68,30 @@ def run_validation(model, config, loader, epoch, max_batches=20, save_folder=Non
 
     # Plot distributions
     if plot_distributions_flag:
-        plot_distributions(real_all, fake_all, epoch, suffix="_validation", save_folder=save_folder)
+        plot_distributions(
+            real_all,
+            fake_all,
+            epoch,
+            suffix="_validation",
+            save_folder=save_folder,
+            feature_names=config.FEATURE_NAMES,
+        )
         if getattr(config, "PLOT_2D_FEATURE_PAIRS", False):
-            plot_2d_momenta_pairs(real_all, fake_all, epoch, save_folder=save_folder, scaled=False)
-        plot_corr_matrix(real_all, fake_all, epoch, save_folder=save_folder)
+            plot_2d_momenta_pairs(
+                real_all,
+                fake_all,
+                epoch,
+                save_folder=save_folder,
+                scaled=False,
+                feature_names=config.FEATURE_NAMES,
+            )
+        plot_corr_matrix(
+            real_all,
+            fake_all,
+            epoch,
+            save_folder=save_folder,
+            feature_names=config.FEATURE_NAMES,
+        )
         # plot_predicted_vs_true(real_all, fake_all, epoch, suffix="_validation", save_folder=save_folder)
         if config.INPUT_SCALER_FLAG:
             real_scaled_all = real_all.copy()
@@ -81,7 +101,15 @@ def run_validation(model, config, loader, epoch, max_batches=20, save_folder=Non
                     fake_scaled_all[:,j] = quantile_transformers[target].transform(fake_scaled_all[:,j].reshape(-1,1)).flatten()
 
             if getattr(config, "PLOT_2D_FEATURE_PAIRS", False):
-                plot_2d_momenta_pairs(real_scaled_all, fake_scaled_all, epoch, suffix="_scaled", save_folder=save_folder, scaled=True)
+                plot_2d_momenta_pairs(
+                    real_scaled_all,
+                    fake_scaled_all,
+                    epoch,
+                    suffix="_scaled",
+                    save_folder=save_folder,
+                    scaled=True,
+                    feature_names=config.FEATURE_NAMES,
+                )
 
         #     plot_distributions(real_scaled_all, fake_scaled_all, epoch, suffix="_scaled", save_folder=save_folder)
 
