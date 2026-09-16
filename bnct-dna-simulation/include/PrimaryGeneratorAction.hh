@@ -52,11 +52,11 @@ public:
     ~PrimaryGeneratorAction() override;
     void GeneratePrimaries(G4Event *event) override;
     G4String primaryName;
-    G4int part1_CopyNum{-1};
-    G4int part1_EventNum{-1};
-    G4double part1_Time{-1};
-    G4double primaryParticle{-1};
-    G4int part1_particleSource{-1};
+    G4int upstreamVoxelID{-1};
+    G4int upstreamEventID{-1};
+    G4double upstreamTime{-1};
+    G4int upstreamParticleID{-1};
+    G4int upstreamPrimaryID{-1};
     G4int upstreamSeedID{-1};
     G4int upstreamTrackID{-1};
     G4int upstreamParentID{-1};

@@ -181,10 +181,11 @@ void SteppingAction::UserSteppingAction(const G4Step *step)
     const PrimaryGeneratorAction *generatorAction = static_cast<const PrimaryGeneratorAction *>(
         G4RunManager::GetRunManager()->GetUserPrimaryGeneratorAction());
 
-    G4int part1_CopyNum = generatorAction->part1_CopyNum;
-    G4double part1_Time = generatorAction->part1_Time;
-    G4int part1_particleSource = generatorAction->part1_particleSource;
-    G4int part1_EventNum = generatorAction->part1_EventNum;
+    G4int upstreamVoxelID = generatorAction->upstreamVoxelID;
+    G4double upstreamTime = generatorAction->upstreamTime;
+    G4int upstreamParticleID = generatorAction->upstreamParticleID;
+    G4int upstreamPrimaryID = generatorAction->upstreamPrimaryID;
+    G4int upstreamEventID = generatorAction->upstreamEventID;
     G4int upstreamSeedID = generatorAction->upstreamSeedID;
     G4int upstreamTrackID = generatorAction->upstreamTrackID;
     G4int upstreamParentID = generatorAction->upstreamParentID;
@@ -197,13 +198,14 @@ void SteppingAction::UserSteppingAction(const G4Step *step)
     analysisManager->FillNtupleIColumn(1, 5, particleID[step->GetTrack()->GetParticleDefinition()->GetParticleName()]);
     if (IsPhaseSpaceInputActive(parser))
     {
-      analysisManager->FillNtupleIColumn(1, 6, part1_CopyNum);
-      analysisManager->FillNtupleDColumn(1, 7, part1_Time + (step->GetTrack()->GetGlobalTime()));
-      analysisManager->FillNtupleIColumn(1, 8, part1_particleSource); // save primary name so that DNA damage can be calculated per incoming particle
-      analysisManager->FillNtupleIColumn(1, 9, part1_EventNum);
-      analysisManager->FillNtupleIColumn(1, 10, upstreamSeedID);
-      analysisManager->FillNtupleIColumn(1, 11, upstreamTrackID);
-      analysisManager->FillNtupleIColumn(1, 12, upstreamParentID);
+      analysisManager->FillNtupleIColumn(1, 6, upstreamVoxelID);
+      analysisManager->FillNtupleDColumn(1, 7, upstreamTime + (step->GetTrack()->GetGlobalTime()));
+      analysisManager->FillNtupleIColumn(1, 8, upstreamParticleID); // save primary name so that DNA damage can be calculated per incoming particle
+      analysisManager->FillNtupleIColumn(1, 9, upstreamPrimaryID);
+      analysisManager->FillNtupleIColumn(1, 10, upstreamEventID);
+      analysisManager->FillNtupleIColumn(1, 11, upstreamSeedID);
+      analysisManager->FillNtupleIColumn(1, 12, upstreamTrackID);
+      analysisManager->FillNtupleIColumn(1, 13, upstreamParentID);
     }
     analysisManager->AddNtupleRow(1);
   }

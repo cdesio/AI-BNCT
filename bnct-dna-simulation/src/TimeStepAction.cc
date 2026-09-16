@@ -229,10 +229,11 @@ void TimeStepAction::UserReactionAction(const G4Track &trackA,
     const PrimaryGeneratorAction *generatorAction = static_cast<const PrimaryGeneratorAction *>(
         G4RunManager::GetRunManager()->GetUserPrimaryGeneratorAction());
 
-    G4int part1_CopyNum = generatorAction->part1_CopyNum;
-    G4double part1_Time = generatorAction->part1_Time;
-    G4double part1_particleSource = generatorAction->part1_particleSource;
-    G4int part1_EventNum = generatorAction->part1_EventNum;
+    G4int upstreamVoxelID = generatorAction->upstreamVoxelID;
+    G4double upstreamTime = generatorAction->upstreamTime;
+    G4int upstreamParticleID = generatorAction->upstreamParticleID;
+    G4int upstreamPrimaryID = generatorAction->upstreamPrimaryID;
+    G4int upstreamEventID = generatorAction->upstreamEventID;
     G4int upstreamSeedID = generatorAction->upstreamSeedID;
     G4int upstreamTrackID = generatorAction->upstreamTrackID;
     G4int upstreamParentID = generatorAction->upstreamParentID;
@@ -245,13 +246,14 @@ void TimeStepAction::UserReactionAction(const G4Track &trackA,
     analysisManager->FillNtupleSColumn(2, 5, GetMolecule(radical)->GetName());
     if (IsPhaseSpaceInputActive(parser))
     {
-      analysisManager->FillNtupleIColumn(2, 6, part1_CopyNum);
-      analysisManager->FillNtupleDColumn(2, 7, part1_Time + DNAElement->GetGlobalTime());
-      analysisManager->FillNtupleIColumn(2, 8, part1_particleSource);
-      analysisManager->FillNtupleIColumn(2, 9, part1_EventNum);
-      analysisManager->FillNtupleIColumn(2, 10, upstreamSeedID);
-      analysisManager->FillNtupleIColumn(2, 11, upstreamTrackID);
-      analysisManager->FillNtupleIColumn(2, 12, upstreamParentID);
+      analysisManager->FillNtupleIColumn(2, 6, upstreamVoxelID);
+      analysisManager->FillNtupleDColumn(2, 7, upstreamTime + DNAElement->GetGlobalTime());
+      analysisManager->FillNtupleIColumn(2, 8, upstreamParticleID);
+      analysisManager->FillNtupleIColumn(2, 9, upstreamPrimaryID);
+      analysisManager->FillNtupleIColumn(2, 10, upstreamEventID);
+      analysisManager->FillNtupleIColumn(2, 11, upstreamSeedID);
+      analysisManager->FillNtupleIColumn(2, 12, upstreamTrackID);
+      analysisManager->FillNtupleIColumn(2, 13, upstreamParentID);
     }
     analysisManager->AddNtupleRow(2);
   }

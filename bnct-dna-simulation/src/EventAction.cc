@@ -119,23 +119,25 @@ void EventAction::EndOfEventAction(const G4Event *)
     const PrimaryGeneratorAction *generatorAction = static_cast<const PrimaryGeneratorAction *>(
       G4RunManager::GetRunManager()->GetUserPrimaryGeneratorAction());
 
-    G4int part1_EventNum = generatorAction->part1_EventNum;
-    G4int part1_CopyNum = generatorAction->part1_CopyNum;
-    G4int part1_particleSource = generatorAction->part1_particleSource;
-    G4double part1_Time = generatorAction->part1_Time;
+    G4int upstreamEventID = generatorAction->upstreamEventID;
+    G4int upstreamVoxelID = generatorAction->upstreamVoxelID;
+    G4int upstreamParticleID = generatorAction->upstreamParticleID;
+    G4int upstreamPrimaryID = generatorAction->upstreamPrimaryID;
+    G4double upstreamTime = generatorAction->upstreamTime;
     G4int upstreamSeedID = generatorAction->upstreamSeedID;
     G4int upstreamTrackID = generatorAction->upstreamTrackID;
     G4int upstreamParentID = generatorAction->upstreamParentID;
 
     analysisManager->FillNtupleDColumn(0, 0, (fEdep / joule));
     analysisManager->FillNtupleIColumn(0, 1, G4EventManager::GetEventManager()->GetConstCurrentEvent()->GetEventID());
-    analysisManager->FillNtupleIColumn(0, 2, part1_EventNum);
-    analysisManager->FillNtupleIColumn(0, 3, part1_CopyNum);
-    analysisManager->FillNtupleIColumn(0, 4, part1_particleSource);
-    analysisManager->FillNtupleDColumn(0, 5, part1_Time);
-    analysisManager->FillNtupleIColumn(0, 6, upstreamSeedID);
-    analysisManager->FillNtupleIColumn(0, 7, upstreamTrackID);
-    analysisManager->FillNtupleIColumn(0, 8, upstreamParentID);
+    analysisManager->FillNtupleIColumn(0, 2, upstreamEventID);
+    analysisManager->FillNtupleIColumn(0, 3, upstreamVoxelID);
+    analysisManager->FillNtupleIColumn(0, 4, upstreamParticleID);
+    analysisManager->FillNtupleIColumn(0, 5, upstreamPrimaryID);
+    analysisManager->FillNtupleDColumn(0, 6, upstreamTime / ns);
+    analysisManager->FillNtupleIColumn(0, 7, upstreamSeedID);
+    analysisManager->FillNtupleIColumn(0, 8, upstreamTrackID);
+    analysisManager->FillNtupleIColumn(0, 9, upstreamParentID);
 
     analysisManager->AddNtupleRow();
   }
@@ -144,12 +146,12 @@ void EventAction::EndOfEventAction(const G4Event *)
     const PrimaryGeneratorAction *generatorAction = static_cast<const PrimaryGeneratorAction *>(
       G4RunManager::GetRunManager()->GetUserPrimaryGeneratorAction());
 
-    G4int part1_EventNum = generatorAction->part1_EventNum;
-    G4int part1_CopyNum = generatorAction->part1_CopyNum;
+    G4int upstreamEventID = generatorAction->upstreamEventID;
+    G4int upstreamVoxelID = generatorAction->upstreamVoxelID;
 
     analysisManager->FillNtupleDColumn(0, 0, (fEdep / joule));
     analysisManager->FillNtupleIColumn(0, 1, G4EventManager::GetEventManager()->GetConstCurrentEvent()->GetEventID());
-    analysisManager->FillNtupleIColumn(0, 2, part1_EventNum);
+    analysisManager->FillNtupleIColumn(0, 2, upstreamEventID);
 
     analysisManager->AddNtupleRow();
   }

@@ -154,11 +154,11 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event *anEvent)
     G4double momentumY = line[4];
     G4double momentumZ = line[5];
     G4double particleEnergy = line[6];
-    part1_EventNum = line[7];
-    primaryParticle = line[8];
-    part1_CopyNum = line[9];
-    part1_Time = line[10];
-    part1_particleSource = line[11];
+    upstreamEventID = static_cast<G4int>(line[7]);
+    upstreamParticleID = static_cast<G4int>(line[8]);
+    upstreamVoxelID = static_cast<G4int>(line[9]);
+    upstreamTime = line[10];
+    upstreamPrimaryID = static_cast<G4int>(line[11]);
     upstreamLocalPosition = G4ThreeVector(positionX, positionY, positionZ);
     upstreamWorldPosition = upstreamLocalPosition;
     upstreamSeedID = -1;
@@ -226,7 +226,7 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event *anEvent)
       {53, "lithium+++"}
     };
 
-    int particleID = static_cast<int>(primaryParticle);
+    int particleID = static_cast<int>(upstreamParticleID);
 
     // First, check if it's a basic particle
     auto basicIt = basicParticleMap.find(particleID);
@@ -267,7 +267,7 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event *anEvent)
           G4Exception("PrimaryGeneratorAction::GeneratePrimaries",
                   "BadPrimaryID",
                   JustWarning,
-                  ("Unknown primaryParticle id: " + std::to_string(particleID) + 
+                  ("Unknown upstreamParticleID id: " + std::to_string(particleID) + 
                    " at event " + std::to_string(anEvent->GetEventID())).c_str());
       
                    
@@ -292,7 +292,7 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event *anEvent)
       return;
     }
     
-    // G4cout << primaryName << " position = " << G4ThreeVector(positionX, positionY, positionZ) << " momentum = " << G4ThreeVector(momentumX, momentumY, momentumZ) << " energy = " << particleEnergy << "Ra event number = " << part1_EventNum << " copy number = " << part1_CopyNum << " source particle = " << part1_particleSource <<G4endl;
+    // G4cout << primaryName << " position = " << G4ThreeVector(positionX, positionY, positionZ) << " momentum = " << G4ThreeVector(momentumX, momentumY, momentumZ) << " energy = " << particleEnergy << "Ra event number = " << upstreamEventID << " copy number = " << upstreamVoxelID << " source particle = " << upstreamParticleID <<G4endl;
     fParticleGun->SetParticleDefinition(particle);
     fParticleGun->SetParticlePosition(G4ThreeVector(positionX, positionY, positionZ));
     fParticleGun->SetParticleEnergy(particleEnergy);
@@ -304,19 +304,20 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event *anEvent)
     {
       G4AnalysisManager *analysisManager = G4AnalysisManager::Instance();
       analysisManager->FillNtupleIColumn(4, 0, static_cast<G4int>(eventNum));
-      analysisManager->FillNtupleIColumn(4, 1, part1_EventNum);
-      analysisManager->FillNtupleIColumn(4, 2, part1_CopyNum);
-      analysisManager->FillNtupleIColumn(4, 3, part1_particleSource);
-      analysisManager->FillNtupleIColumn(4, 4, upstreamSeedID);
-      analysisManager->FillNtupleIColumn(4, 5, upstreamTrackID);
-      analysisManager->FillNtupleIColumn(4, 6, upstreamParentID);
-      analysisManager->FillNtupleDColumn(4, 7, part1_Time / CLHEP::ns);
-      analysisManager->FillNtupleDColumn(4, 8, upstreamLocalPosition.x() / nanometer);
-      analysisManager->FillNtupleDColumn(4, 9, upstreamLocalPosition.y() / nanometer);
-      analysisManager->FillNtupleDColumn(4, 10, upstreamLocalPosition.z() / nanometer);
-      analysisManager->FillNtupleDColumn(4, 11, upstreamWorldPosition.x() / nanometer);
-      analysisManager->FillNtupleDColumn(4, 12, upstreamWorldPosition.y() / nanometer);
-      analysisManager->FillNtupleDColumn(4, 13, upstreamWorldPosition.z() / nanometer);
+      analysisManager->FillNtupleIColumn(4, 1, upstreamEventID);
+      analysisManager->FillNtupleIColumn(4, 2, upstreamVoxelID);
+      analysisManager->FillNtupleIColumn(4, 3, upstreamParticleID);
+      analysisManager->FillNtupleIColumn(4, 4, upstreamPrimaryID);
+      analysisManager->FillNtupleIColumn(4, 5, upstreamSeedID);
+      analysisManager->FillNtupleIColumn(4, 6, upstreamTrackID);
+      analysisManager->FillNtupleIColumn(4, 7, upstreamParentID);
+      analysisManager->FillNtupleDColumn(4, 8, upstreamTime / CLHEP::ns);
+      analysisManager->FillNtupleDColumn(4, 9, upstreamLocalPosition.x() / nanometer);
+      analysisManager->FillNtupleDColumn(4, 10, upstreamLocalPosition.y() / nanometer);
+      analysisManager->FillNtupleDColumn(4, 11, upstreamLocalPosition.z() / nanometer);
+      analysisManager->FillNtupleDColumn(4, 12, upstreamWorldPosition.x() / nanometer);
+      analysisManager->FillNtupleDColumn(4, 13, upstreamWorldPosition.y() / nanometer);
+      analysisManager->FillNtupleDColumn(4, 14, upstreamWorldPosition.z() / nanometer);
       analysisManager->AddNtupleRow(4);
     }
 
@@ -343,9 +344,9 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event *anEvent)
     G4double momentumY = line[4];
     G4double momentumZ = line[5];
     G4double particleEnergy = line[6];
-    part1_EventNum = line[7];
+    upstreamEventID = static_cast<G4int>(line[7]);
 
-    // G4cout <<  " position = " << G4ThreeVector(positionX, positionY, positionZ) << " momentum = " << G4ThreeVector(momentumX, momentumY, momentumZ) << " energy = " << particleEnergy << " Co60 event number = " << part1_EventNum <<G4endl;
+    // G4cout <<  " position = " << G4ThreeVector(positionX, positionY, positionZ) << " momentum = " << G4ThreeVector(momentumX, momentumY, momentumZ) << " energy = " << particleEnergy << " Co60 event number = " << upstreamEventID <<G4endl;
 
 
     G4ParticleTable *particleTable = G4ParticleTable::GetParticleTable();

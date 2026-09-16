@@ -167,10 +167,11 @@ void RunAction::CreateNtuple()
   }
   else if (IsPhaseSpaceInputActive(parser))
   {
-    analysisManager->CreateNtupleIColumn("part1_EventNum");
-    analysisManager->CreateNtupleIColumn("part1_CopyNum");
-    analysisManager->CreateNtupleIColumn("part1_particleSource");
-    analysisManager->CreateNtupleDColumn("time");
+    analysisManager->CreateNtupleIColumn("upstream_eventID");
+    analysisManager->CreateNtupleIColumn("upstream_voxelID");
+    analysisManager->CreateNtupleIColumn("upstream_particleID");
+    analysisManager->CreateNtupleIColumn("upstream_primaryID");
+    analysisManager->CreateNtupleDColumn("upstream_time_ns");
     analysisManager->CreateNtupleIColumn("upstream_seedID");
     analysisManager->CreateNtupleIColumn("upstream_trackID");
     analysisManager->CreateNtupleIColumn("upstream_parentID");
@@ -178,7 +179,7 @@ void RunAction::CreateNtuple()
   }
     else if (parser->GetCommandIfActive("-photonPS"))
   {
-    analysisManager->CreateNtupleIColumn("part1_EventNum");
+    analysisManager->CreateNtupleIColumn("upstream_eventID");
   }
   analysisManager->FinishNtuple(0);
 
@@ -192,10 +193,11 @@ void RunAction::CreateNtuple()
 
   if (IsPhaseSpaceInputActive(parser))
   {
-    analysisManager->CreateNtupleIColumn(1, "part1_CopyNum");
+    analysisManager->CreateNtupleIColumn(1, "upstream_voxelID");
     analysisManager->CreateNtupleDColumn(1, "time");
-    analysisManager->CreateNtupleIColumn(1, "part1_particleSource");
-    analysisManager->CreateNtupleIColumn(1, "part1_EventNum");
+    analysisManager->CreateNtupleIColumn(1, "upstream_particleID");
+    analysisManager->CreateNtupleIColumn(1, "upstream_primaryID");
+    analysisManager->CreateNtupleIColumn(1, "upstream_eventID");
     analysisManager->CreateNtupleIColumn(1, "upstream_seedID");
     analysisManager->CreateNtupleIColumn(1, "upstream_trackID");
     analysisManager->CreateNtupleIColumn(1, "upstream_parentID");
@@ -214,10 +216,11 @@ void RunAction::CreateNtuple()
   analysisManager->CreateNtupleSColumn(2, "radical");
   if (IsPhaseSpaceInputActive(parser))
   {
-    analysisManager->CreateNtupleIColumn(2, "part1_CopyNum");
+    analysisManager->CreateNtupleIColumn(2, "upstream_voxelID");
     analysisManager->CreateNtupleDColumn(2, "time");
-    analysisManager->CreateNtupleIColumn(2, "part1_particleSource");
-    analysisManager->CreateNtupleIColumn(2, "part1_EventNum");
+    analysisManager->CreateNtupleIColumn(2, "upstream_particleID");
+    analysisManager->CreateNtupleIColumn(2, "upstream_primaryID");
+    analysisManager->CreateNtupleIColumn(2, "upstream_eventID");
     analysisManager->CreateNtupleIColumn(2, "upstream_seedID");
     analysisManager->CreateNtupleIColumn(2, "upstream_trackID");
     analysisManager->CreateNtupleIColumn(2, "upstream_parentID");
@@ -242,9 +245,10 @@ void RunAction::CreateNtuple()
   {
     analysisManager->CreateNtuple("PS_data", "PS_data");
     analysisManager->CreateNtupleIColumn(4, "EventNum");
-    analysisManager->CreateNtupleIColumn(4, "part1_EventNum");
-    analysisManager->CreateNtupleIColumn(4, "part1_CopyNum");
-    analysisManager->CreateNtupleIColumn(4, "part1_particleSource");
+    analysisManager->CreateNtupleIColumn(4, "upstream_eventID");
+    analysisManager->CreateNtupleIColumn(4, "upstream_voxelID");
+    analysisManager->CreateNtupleIColumn(4, "upstream_particleID");
+    analysisManager->CreateNtupleIColumn(4, "upstream_primaryID");
     analysisManager->CreateNtupleIColumn(4, "upstream_seedID");
     analysisManager->CreateNtupleIColumn(4, "upstream_trackID");
     analysisManager->CreateNtupleIColumn(4, "upstream_parentID");
