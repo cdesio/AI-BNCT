@@ -32,3 +32,5 @@ theranostics-steg/
 bnct-voxel-ps/*.bin
 bnct-voxel-ps/build/
 bnct-dna-simulation/build/
+bnct-clustering/*.csv
+/jobs/
