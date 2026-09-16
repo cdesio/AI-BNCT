@@ -87,3 +87,6 @@ Pass `-sugar` or `-histone` only when replaying with a different DNA geometry.
 
 The output ROOT file follows the AlphaGlue layout: `EventEdep`, `Direct`,
 `Indirect`, and `Info` ntuples under the `ntuple` directory.
+
+For strand-break clustering and per-Z summaries, see
+[`bnct-clustering`](../bnct-clustering/README.md).
