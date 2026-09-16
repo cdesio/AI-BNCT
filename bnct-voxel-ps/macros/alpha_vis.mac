@@ -1,0 +1,16 @@
+/run/verbose 1
+/control/verbose 1
+
+/det/setVoxelSize 300 nm
+/det/setGrid 4 4 40
+/det/setMaxStep 3 nm
+/tracking/killSecondaries false
+/tracking/recordSecondaries true
+
+/primary/particle alpha
+/primary/energy 1.47 MeV
+/primary/position 0 0 0 nm
+/primary/direction 0 0 1
+
+/run/initialize
+/control/execute vis.mac

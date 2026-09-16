@@ -1,0 +1,19 @@
+/vis/open OGL
+/vis/viewer/set/style wireframe
+/vis/viewer/set/viewpointThetaPhi -90. 0.
+/vis/viewer/set/autoRefresh true
+/vis/drawVolume
+/tracking/storeTrajectory 1
+/vis/scene/add/scale 1 um
+/vis/scene/add/axes 0 0 0 1 um
+/vis/viewer/zoom 2.
+/vis/scene/add/trajectories smooth
+
+/vis/modeling/trajectories/create/drawByParticleID
+/vis/modeling/trajectories/drawByParticleID-0/set alpha green
+/vis/modeling/trajectories/drawByParticleID-0/set e- yellow
+
+
+/vis/scene/add/eventID
+/vis/scene/endOfEventAction accumulate
+/vis/viewer/refresh

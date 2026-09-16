@@ -1,0 +1,16 @@
+/run/verbose 0
+/control/verbose 0
+
+/det/setVoxelSize 300 nm
+/det/setGrid 4 4 40
+/det/setMaxStep 30 nm
+/tracking/killSecondaries false
+/tracking/recordSecondaries true
+
+/primary/particle alpha
+/primary/energy 1.47 MeV
+/primary/position 0 0 0 nm
+/primary/direction 0 0 1
+
+/run/initialize
+/run/beamOn 1
