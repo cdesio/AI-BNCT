@@ -42,7 +42,8 @@ the clustering job. That environment needs `numpy`, `scipy`, `uproot`,
 `pybind11`, and `cmake`:
 
 ```bash
-conda activate clustering
+module use /projects/b56v/software/modulefiles
+module load clustering/conda
 cmake -S bnct-clustering -B bnct-clustering/build -DPython3_EXECUTABLE="$(which python)"
 cmake --build bnct-clustering/build -j4
 ```

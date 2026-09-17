@@ -100,8 +100,8 @@ def make_scripts(args, run_dir, prefix):
 
     clustering = slurm_header("cluster", run_dir, prefix, args.clustering_time, 1,
                               args.clustering_mem, args.mail_user)
-    clustering += "if [[ -f \"$HOME/.bash_profile\" ]]; then source \"$HOME/.bash_profile\"; fi\n"
-    clustering += "conda activate clustering\n"
+    clustering += f"module use {shell(args.modulefiles_dir)}\n"
+    clustering += "module load clustering/conda\n"
     clustering += f"test -s {shell(dna_root)}\n"
     clustering += f"cd {shell(root)}\n"
     clustering += f"time python {shell(root / 'bnct-clustering/run.py')} {shell(dna_root)} "
