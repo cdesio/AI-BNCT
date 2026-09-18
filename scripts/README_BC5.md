@@ -77,7 +77,7 @@ ROOT file and a `.done` marker. When the job approaches its time limit, it
 submits another DNA job, which skips completed batches. After all batches
 finish, a merge job runs `hadd` and submits clustering. Set batch size with
 `--checkpoint-events`; choose a size that normally finishes well within one
-DNA job. The merge job loads `apps/root/6.26.00`.
+DNA job. The merge job loads `root/conda` and requires `hadd`.
 Each replay event gets a reproducible seed derived from `--seed` and its
 original phase-space record number. With the same executable, input, and
 settings, changing the checkpoint size does not change an event's seed.

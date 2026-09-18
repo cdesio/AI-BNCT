@@ -108,7 +108,8 @@ def make_scripts(args, run_dir, prefix):
 
     merge = slurm_header("merge", run_dir, prefix, args.clustering_time, 1,
                          args.clustering_mem, args.mail_user)
-    merge += f"module use {shell(args.modulefiles_dir)}\nmodule load apps/root/6.26.00\n"
+    merge += f"module use {shell(args.modulefiles_dir)}\nmodule load root/conda\n"
+    merge += "command -v hadd\n"
     merge += f"python {shell(runner)} merge {runner_args}\n"
     merge += f"test -s {shell(dna_root)}\n"
     merge += f"sbatch {shell(run_dir / 'clustering.sbatch')}\n"
