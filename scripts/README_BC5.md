@@ -94,6 +94,8 @@ overwritten by the generator.
 Resource defaults are one CPU and 16 GB for upstream, four CPUs and 100 GB
 for DNA, and one CPU and 32 GB for clustering. Change these with the
 generator's `--*-time`, `--*-mem`, and `--dna-cpus` options before submission.
+Jobs request email on `FAIL`, `END`, and `TIME_LIMIT`; delivery depends on
+BC5's Slurm mail configuration. Use `--mail-user` to set the recipient.
 All requested walltimes are checked against BC5's 24-hour limit. The DNA job
 now defaults to 24 hours; choose `--events` from your timing tests so the DNA
 stage finishes within that limit with headroom for run-to-run variation.

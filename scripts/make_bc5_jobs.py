@@ -39,7 +39,7 @@ def slurm_header(stage, run_dir, prefix, hours, cpus, memory, email):
         f"#SBATCH --mem={memory}",
     ]
     if email:
-        lines.extend((f"#SBATCH --mail-user={email}", "#SBATCH --mail-type=FAIL,END"))
+        lines.extend((f"#SBATCH --mail-user={email}", "#SBATCH --mail-type=FAIL,END,TIME_LIMIT"))
     return "\n".join(lines) + "\n\nset -euo pipefail\n"
 
 
