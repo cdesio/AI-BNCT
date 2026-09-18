@@ -37,6 +37,8 @@
 #include "PhysicsList.hh"
 #include "CommandLineParser.hh"
 #include "G4DNAChemistryManager.hh"
+#include <climits>
+#include <cstdlib>
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 using namespace G4DNAPARSER;
@@ -68,12 +70,12 @@ int main(int argc, char **argv)
   //   PS file for e- from photon simulation and all particles decay simulation
   std::ifstream ps_file;
   G4String ps_file_name;
-  G4int PS_data;
+  G4int PS_data = 0;
 
   if (((commandLine = GetPhaseSpaceInputCommand(parser))) || ((commandLine = parser->GetCommandIfActive("-photonPS"))))
   {
     ps_file_name = commandLine->GetOption();
-    ps_file.open(ps_file_name); // open file
+    ps_file.open(ps_file_name, std::ios::binary); // open file
 
     if (ps_file.is_open())
     {
@@ -91,14 +93,17 @@ int main(int argc, char **argv)
       const std::streamoff fileSize = ps_file.tellg();
 
       // Support legacy 16-double records and new 18-double records.
-      if (fileSize % static_cast<std::streamoff>(18 * 8) == 0)
+      Command *widthCommand = parser->GetCommandIfActive("-record-doubles");
+      char *widthEnd = nullptr;
+      const int width = widthCommand ? std::strtol(widthCommand->GetOption().c_str(), &widthEnd, 10) :
+                        (fileSize % static_cast<std::streamoff>(18 * 8) == 0 ? 18 : 16);
+      if (fileSize <= 0 || (width != 16 && width != 18) || fileSize % (width * 8) != 0 ||
+          fileSize / (width * 8) > INT_MAX || (widthCommand && *widthEnd != '\0'))
       {
-        PS_data = fileSize / (18 * 8);
+        G4cerr << "Invalid phase-space record size" << G4endl;
+        return 1;
       }
-      else
-      {
-        PS_data = fileSize / (16 * 8);
-      }
+      PS_data = fileSize / (width * 8);
 
     }
     else
@@ -109,6 +114,35 @@ int main(int argc, char **argv)
   }
 
   ps_file.close();
+  const auto parseNonnegative = [](Command *command, const char *name) -> long {
+    if (!command) return 0;
+    char *end = nullptr;
+    const long value = std::strtol(command->GetOption().c_str(), &end, 10);
+    if (end == command->GetOption().c_str() || *end != '\0' || value < 0 || value > INT_MAX)
+    {
+      G4cerr << "Invalid " << name << G4endl;
+      std::exit(2);
+    }
+    return value;
+  };
+  Command *startCommand = parser->GetCommandIfActive("-start-record");
+  Command *countCommand = parser->GetCommandIfActive("-record-count");
+  if ((startCommand || countCommand) && !IsPhaseSpaceInputActive(parser))
+  {
+    G4cerr << "Record ranges require -in" << G4endl;
+    return 2;
+  }
+  const long startRecord = parseNonnegative(startCommand, "-start-record");
+  const long recordCount = countCommand ? parseNonnegative(countCommand, "-record-count") : PS_data - startRecord;
+  if (IsPhaseSpaceInputActive(parser))
+  {
+    if (startRecord >= PS_data || recordCount <= 0 || recordCount > PS_data - startRecord)
+    {
+      G4cerr << "Record range is outside phase-space input" << G4endl;
+      return 2;
+    }
+    PS_data = static_cast<G4int>(recordCount);
+  }
   std::unique_ptr<G4RunManager> pRunManager(G4RunManagerFactory::CreateRunManager());
   pRunManager->SetNumberOfThreads(4); // by default
 
@@ -229,6 +263,12 @@ void Parse(int &argc, char **argv)
   parser->AddCommand("-in",
                      Command::WithOption,
                      "Binary phase-space input file");
+  parser->AddCommand("-start-record", Command::WithOption,
+                     "First phase-space record to replay (zero based)");
+  parser->AddCommand("-record-count", Command::WithOption,
+                     "Maximum number of phase-space records to replay");
+  parser->AddCommand("-record-doubles", Command::WithOption,
+                     "Phase-space record width: 16 or 18 doubles");
   parser->AddCommand("-PS",
                      Command::WithOption,
                      "Binary phase-space input file");

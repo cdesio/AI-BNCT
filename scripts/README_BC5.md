@@ -1,7 +1,7 @@
 # BC5 pipeline jobs
 
 Run the generator from the AI-BNCT checkout on BC5. It creates one run
-directory containing `upstream.mac`, `dna.mac`, three independent SLURM jobs,
+directory containing `upstream.mac`, `dna.mac`, four independent SLURM jobs,
 and `submit_all.sh`. No account or partition is specified.
 
 ## One-time builds on BC5
@@ -71,14 +71,30 @@ already sets up the Geant4 runtime. Build and run each executable against the
 same Geant4 installation. Lithium runs should use a build with the patched
 lithium definitions and models.
 
-The launcher submits upstream, then DNA with `afterok`, then clustering with
-`afterok`. To resume after an upstream result already exists:
+The launcher submits upstream, then DNA with `afterok`. DNA replays the binary
+phase space in batches of 10,000 records by default. Each finished batch has a
+ROOT file and a `.done` marker. When the job approaches its time limit, it
+submits another DNA job, which skips completed batches. After all batches
+finish, a merge job runs `hadd` and submits clustering. Set batch size with
+`--checkpoint-events`; choose a size that normally finishes well within one
+DNA job. The merge job loads `apps/root/6.26.00`.
+Each replay event gets a reproducible seed derived from `--seed` and its
+original phase-space record number. With the same executable, input, and
+settings, changing the checkpoint size does not change an event's seed.
+This seeding scheme changes individual outcomes compared with older DNA runs
+that seeded only once per process.
+
+To resume after an upstream result already exists:
 
 ```bash
 ./jobs/alpha_1p47_seed6069075/submit_all.sh dna
 ```
 
-To rerun only clustering:
+To rerun only the merge or clustering:
+
+```bash
+./jobs/alpha_1p47_seed6069075/submit_all.sh merge
+```
 
 ```bash
 ./jobs/alpha_1p47_seed6069075/submit_all.sh clustering
@@ -97,5 +113,7 @@ generator's `--*-time`, `--*-mem`, and `--dna-cpus` options before submission.
 Jobs request email on `FAIL`, `END`, and `TIME_LIMIT`; delivery depends on
 BC5's Slurm mail configuration. Use `--mail-user` to set the recipient.
 All requested walltimes are checked against BC5's 24-hour limit. The DNA job
-now defaults to 24 hours; choose `--events` from your timing tests so the DNA
-stage finishes within that limit with headroom for run-to-run variation.
+defaults to 24 hours, with 23 hours available for DNA batches. A batch that
+cannot finish within one job fails with a request to reduce the checkpoint
+size. Completed batches are retained. Use
+`--dna-budget-seconds` if the DNA walltime is shorter than 24 hours.

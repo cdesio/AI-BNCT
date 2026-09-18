@@ -40,6 +40,9 @@
 #include "RunAction.hh"
 #include "CommandLineParser.hh"
 #include "PrimaryGeneratorAction.hh"
+#include "ReplayEventID.hh"
+#include "ReplaySeed.hh"
+#include <cstdlib>
 
 using namespace G4DNAPARSER;
 
@@ -72,6 +75,14 @@ EventAction::~EventAction()
 
 void EventAction::BeginOfEventAction(const G4Event *event)
 {
+  auto *parser = CommandLineParser::GetParser();
+  if (IsPhaseSpaceInputActive(parser))
+  {
+    auto *seedCommand = parser->GetCommandIfActive("-seed");
+    const auto runSeed = seedCommand ? std::strtoul(seedCommand->GetOption().c_str(), nullptr, 10) : 1UL;
+    G4Random::setTheSeed(ReplaySeed(static_cast<std::uint32_t>(runSeed),
+                                    static_cast<std::uint32_t>(ReplayEventID(event->GetEventID()))));
+  }
   fEdep = 0.;
   fTrackStartKE = 0;
   fTrackStartFound = false;
@@ -129,7 +140,7 @@ void EventAction::EndOfEventAction(const G4Event *)
     G4int upstreamParentID = generatorAction->upstreamParentID;
 
     analysisManager->FillNtupleDColumn(0, 0, (fEdep / joule));
-    analysisManager->FillNtupleIColumn(0, 1, G4EventManager::GetEventManager()->GetConstCurrentEvent()->GetEventID());
+    analysisManager->FillNtupleIColumn(0, 1, ReplayEventID(G4EventManager::GetEventManager()->GetConstCurrentEvent()->GetEventID()));
     analysisManager->FillNtupleIColumn(0, 2, upstreamEventID);
     analysisManager->FillNtupleIColumn(0, 3, upstreamVoxelID);
     analysisManager->FillNtupleIColumn(0, 4, upstreamParticleID);

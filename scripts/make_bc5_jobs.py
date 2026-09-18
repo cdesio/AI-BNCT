@@ -95,8 +95,23 @@ def make_scripts(args, run_dir, prefix):
     dna += f"test -f {shell(root / 'bnct-dna-simulation/geometryFiles' / HISTONE_NAME)}\n"
     dna += f"cd {shell(dna_exe.parent)}\n"
     dna += f"test -x {shell(dna_exe)}\n"
-    dna += f"time {shell(dna_exe)} -mac {shell(run_dir / 'dna.mac')} -in {shell(phase_bin)} -out {shell(dna_root)} -seed {args.seed}\n"
-    dna += f"test -s {shell(dna_root)}\n"
+    runner = root / "scripts/dna_checkpoint.py"
+    runner_args = (f"--input {shell(phase_bin)} --output {shell(dna_root)} "
+                   f"--executable {shell(dna_exe)} --macro {shell(run_dir / 'dna.mac')} "
+                   f"--seed {args.seed} --checkpoint-events {args.checkpoint_events}")
+    dna += "set +e\n"
+    dna += f"python {shell(runner)} run {runner_args} --budget-seconds {args.dna_budget_seconds}\n"
+    dna += "status=$?\nset -e\n"
+    dna += f"if [[ $status -eq 75 ]]; then sbatch {shell(run_dir / 'dna.sbatch')}; exit 0; fi\n"
+    dna += "if [[ $status -ne 0 ]]; then exit \"$status\"; fi\n"
+    dna += f"sbatch {shell(run_dir / 'merge.sbatch')}\n"
+
+    merge = slurm_header("merge", run_dir, prefix, args.clustering_time, 1,
+                         args.clustering_mem, args.mail_user)
+    merge += f"module use {shell(args.modulefiles_dir)}\nmodule load apps/root/6.26.00\n"
+    merge += f"python {shell(runner)} merge {runner_args}\n"
+    merge += f"test -s {shell(dna_root)}\n"
+    merge += f"sbatch {shell(run_dir / 'clustering.sbatch')}\n"
 
     clustering = slurm_header("cluster", run_dir, prefix, args.clustering_time, 1,
                               args.clustering_mem, args.mail_user)
@@ -120,10 +135,12 @@ case "$start" in
     ps_job=${ps_job%%;*}
     echo "Submitted upstream: $ps_job"
     ;;
-  dna|clustering) ;;
-  *) echo "Usage: $0 [upstream|dna|clustering]" >&2; exit 2 ;;
+  dna|merge|clustering) ;;
+  *) echo "Usage: $0 [upstream|dna|merge|clustering]" >&2; exit 2 ;;
 esac
-if [[ "$start" != clustering ]]; then
+if [[ "$start" == merge ]]; then
+  sbatch "$RUN_DIR/merge.sbatch"
+elif [[ "$start" != clustering ]]; then
   if [[ "$start" == upstream ]]; then
     dna_job=$(sbatch --parsable --dependency="afterok:$ps_job" "$RUN_DIR/dna.sbatch")
   else
@@ -131,18 +148,16 @@ if [[ "$start" != clustering ]]; then
   fi
   dna_job=${dna_job%%;*}
   echo "Submitted DNA: $dna_job"
-  cluster_job=$(sbatch --parsable --dependency="afterok:$dna_job" "$RUN_DIR/clustering.sbatch")
 else
-  cluster_job=$(sbatch --parsable "$RUN_DIR/clustering.sbatch")
+  sbatch "$RUN_DIR/clustering.sbatch"
 fi
-cluster_job=${cluster_job%%;*}
-echo "Submitted clustering: $cluster_job"
 """
     return {
         "upstream.mac": make_macro(args.particle, args.events),
         "dna.mac": make_dna_macro(args.dna_cpus),
         "upstream.sbatch": upstream,
         "dna.sbatch": dna,
+        "merge.sbatch": merge,
         "clustering.sbatch": clustering,
         "submit_all.sh": launcher,
     }
@@ -172,9 +187,20 @@ def main():
     parser.add_argument("--dna-mem", default="100GB")
     parser.add_argument("--clustering-mem", default="32GB")
     parser.add_argument("--dna-cpus", type=int, default=4)
+    parser.add_argument("--checkpoint-events", type=int, default=10000,
+                        help="DNA phase-space records per durable ROOT checkpoint")
+    parser.add_argument("--dna-budget-seconds", type=int, default=23 * 3600,
+                        help="Maximum DNA work time per Slurm job")
     args = parser.parse_args()
-    if args.events <= 0 or args.seed <= 0 or args.dna_cpus <= 0:
-        parser.error("Events, seed, and DNA CPUs must be positive")
+    if args.events <= 0 or args.seed <= 0 or args.dna_cpus <= 0 or args.checkpoint_events <= 0:
+        parser.error("Events, seed, DNA CPUs, and checkpoint size must be positive")
+    if args.dna_budget_seconds <= 300 or args.dna_budget_seconds >= 86400:
+        parser.error("DNA budget must be between 300 and 86400 seconds")
+    match = re.fullmatch(r"(?:(\d+)-)?(\d+):([0-5]\d):([0-5]\d)", args.dna_time)
+    days, hours, minutes, seconds = (int(part or 0) for part in match.groups())
+    dna_seconds = days * 86400 + hours * 3600 + minutes * 60 + seconds
+    if args.dna_budget_seconds + 300 >= dna_seconds:
+        parser.error("DNA budget needs at least 5 minutes below the DNA walltime")
     name = args.name or args.particle
     if not re.fullmatch(r"[A-Za-z0-9_-]+", name):
         parser.error("Run name must contain only letters, numbers, '_' or '-'")

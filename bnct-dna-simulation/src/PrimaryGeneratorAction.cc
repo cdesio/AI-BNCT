@@ -36,6 +36,7 @@
 #include "G4ParticleTable.hh"
 #include "G4IonTable.hh"
 #include "G4DNAGenericIonsManager.hh"
+#include "ReplayEventID.hh"
 
 #include <map>
 #include <set>
@@ -117,7 +118,7 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event *anEvent)
   Command *command(0); // again, does this do anything?
   if (IsPhaseSpaceInputActive(parser))
   {
-    G4long eventNum = anEvent->GetEventID();
+    G4long eventNum = ReplayEventID(anEvent->GetEventID());
 
     std::ifstream ps_file (fPS_data, std::ifstream::binary);
 
@@ -128,12 +129,13 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event *anEvent)
       ps_file.seekg(0, ps_file.beg);
 
       // Support legacy 16-double records and new 18-double records.
-      fDecayPSRecordDoubles = 16;
-      if (fileSize % static_cast<std::streamoff>(18 * 8) == 0)
+      auto *widthCommand = parser->GetCommandIfActive("-record-doubles");
+      fDecayPSRecordDoubles = widthCommand ? std::atoi(widthCommand->GetOption().c_str()) : 16;
+      if (!widthCommand && fileSize % static_cast<std::streamoff>(18 * 8) == 0)
       {
         fDecayPSRecordDoubles = 18;
       }
-      else if (fileSize % static_cast<std::streamoff>(16 * 8) != 0)
+      else if (!widthCommand && fileSize % static_cast<std::streamoff>(16 * 8) != 0)
       {
         G4cout << "Warning: PSfile size not divisible by 16 or 18 doubles; assuming 16." << G4endl;
       }
@@ -145,6 +147,13 @@ void PrimaryGeneratorAction::GeneratePrimaries(G4Event *anEvent)
     std::vector<double> line(recordDoubles);
 
     ps_file.read(reinterpret_cast<char *>(line.data()), static_cast<std::streamsize>(recordDoubles * sizeof(double)));
+
+    if (!ps_file)
+    {
+      G4Exception("PrimaryGeneratorAction::GeneratePrimaries", "PhaseSpaceRead",
+                  FatalException, "Could not read phase-space record");
+      return;
+    }
 
     ps_file.close();
     G4double positionX = line[0];

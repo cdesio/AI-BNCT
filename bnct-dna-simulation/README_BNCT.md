@@ -85,6 +85,17 @@ cd /Users/yw18581/work/AI-BNCT/bnct-dna-simulation/build
 By default, `rbe` uses the bundled 300 nm geometry files in `geometryFiles/`.
 Pass `-sugar` or `-histone` only when replaying with a different DNA geometry.
 
+For a record range, pass `-start-record N -record-count M`. The replay event
+numbers in all output ntuples remain the original zero-based record numbers,
+so independently completed ROOT files can be merged with `hadd`. For BNCT
+phase-space files, pass `-record-doubles 18` to specify the record width
+explicitly. The BC5 job generator runs these ranges in resumable batches and
+merges them before clustering.
+For phase-space replay, each event's random seed is derived from `-seed` and
+its original record number. The seed therefore stays the same across DNA
+checkpoints and in an uninterrupted run using this version of the executable.
+Earlier results used one seed per process and will not match event by event.
+
 The output ROOT file follows the AlphaGlue layout: `EventEdep`, `Direct`,
 `Indirect`, and `Info` ntuples under the `ntuple` directory.
 

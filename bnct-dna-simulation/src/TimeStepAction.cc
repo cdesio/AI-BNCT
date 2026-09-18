@@ -28,6 +28,7 @@
 /// \brief Implementation of the TimeStepAction class
 
 #include "TimeStepAction.hh"
+#include "ReplayEventID.hh"
 #include <G4Scheduler.hh>
 #include "G4UnitsTable.hh"
 #include "G4SystemOfUnits.hh"
@@ -200,7 +201,7 @@ void TimeStepAction::UserReactionAction(const G4Track &trackA,
 
     G4AnalysisManager *analysisManager = G4AnalysisManager::Instance();
 
-    G4int eventID = G4EventManager::GetEventManager()->GetConstCurrentEvent()->GetEventID();
+    G4int eventID = ReplayEventID(G4EventManager::GetEventManager()->GetConstCurrentEvent()->GetEventID());
 
     auto result0 = fPositions0->Nearest(localPosDNA);
     auto result1 = fPositions1->Nearest(localPosDNA);

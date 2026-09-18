@@ -25,6 +25,7 @@
 //
 //
 #include "SteppingAction.hh"
+#include "ReplayEventID.hh"
 #include "G4AnalysisManager.hh"
 #include "G4SystemOfUnits.hh"
 #include "G4ITTrackHolder.hh"
@@ -162,7 +163,7 @@ void SteppingAction::UserSteppingAction(const G4Step *step)
 
     G4AnalysisManager *analysisManager = G4AnalysisManager::Instance();
 
-    G4int eventID = G4EventManager::GetEventManager()->GetConstCurrentEvent()->GetEventID();
+    G4int eventID = ReplayEventID(G4EventManager::GetEventManager()->GetConstCurrentEvent()->GetEventID());
 
     G4ThreeVector prePoint = step->GetPreStepPoint()->GetPosition();
     G4ThreeVector postPoint = step->GetPostStepPoint()->GetPosition();
