@@ -188,7 +188,7 @@ def main():
     parser.add_argument("--dna-mem", default="100GB")
     parser.add_argument("--clustering-mem", default="32GB")
     parser.add_argument("--dna-cpus", type=int, default=4)
-    parser.add_argument("--checkpoint-events", type=int, default=10000,
+    parser.add_argument("--checkpoint-events", type=int, default=100,
                         help="DNA phase-space records per durable ROOT checkpoint")
     parser.add_argument("--dna-budget-seconds", type=int, default=23 * 3600,
                         help="Maximum DNA work time per Slurm job")

@@ -72,12 +72,17 @@ same Geant4 installation. Lithium runs should use a build with the patched
 lithium definitions and models.
 
 The launcher submits upstream, then DNA with `afterok`. DNA replays the binary
-phase space in batches of 10,000 records by default. Each finished batch has a
+phase space in batches of 100 records by default. Each finished batch has a
 ROOT file and a `.done` marker. When the job approaches its time limit, it
 submits another DNA job, which skips completed batches. After all batches
 finish, a merge job runs `hadd` and submits clustering. Set batch size with
 `--checkpoint-events`; choose a size that normally finishes well within one
 DNA job. The merge job loads `root/conda` and requires `hadd`.
+In a BC5 alpha pilot, 80 records took 19m42s with 20 threads, so 200 records
+is a reasonable first setting for a 20-thread run (about 50 minutes if that
+rate holds). Use the 100-record default for smaller CPU allocations until
+their batch times are measured. Record costs vary, so allow substantial
+headroom below the 24-hour job limit.
 Each replay event gets a reproducible seed derived from `--seed` and its
 original phase-space record number. With the same executable, input, and
 settings, changing the checkpoint size does not change an event's seed.
