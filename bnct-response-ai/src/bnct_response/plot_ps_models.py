@@ -45,12 +45,19 @@ def _response_profile(ax: plt.Axes, frame: pd.DataFrame, prediction: str, title:
     ax.grid(alpha=0.2)
 
 
-def plot_overview(data: pd.DataFrame, runs: Path, output: Path) -> None:
+def _steg_label(label: str, run_dir: Path) -> str:
+    metadata = json.loads((run_dir / "metadata.json").read_text())
+    return f"StEG: {label} ({metadata['epochs']} epochs)"
+
+
+def plot_overview(
+    data: pd.DataFrame, runs: Path, local_steg: Path, history_steg: Path, output: Path
+) -> None:
     variants = [
         ("Extra Trees: local", _baseline_predictions(data, runs / "ps_baseline"), "prediction"),
         ("Extra Trees: history-aware", _baseline_predictions(data, runs / "ps_baseline_history"), "prediction"),
-        ("StEG: local (5 epochs)", pd.read_csv(runs / "ps_steg_local_preliminary" / "validation_preview.csv.gz"), "generated_DNAEdep_keV"),
-        ("StEG: history-aware (5 epochs)", pd.read_csv(runs / "ps_steg_history_preliminary" / "validation_preview.csv.gz"), "generated_DNAEdep_keV"),
+        (_steg_label("local", local_steg), pd.read_csv(local_steg / "validation_preview.csv.gz"), "generated_DNAEdep_keV"),
+        (_steg_label("history-aware", history_steg), pd.read_csv(history_steg / "validation_preview.csv.gz"), "generated_DNAEdep_keV"),
     ]
     fig, axes = plt.subplots(2, 2, figsize=(11, 8))
     for ax, (title, frame, prediction) in zip(axes.flat, variants):
@@ -106,13 +113,13 @@ def plot_baseline_metrics(runs: Path, output: Path) -> None:
     plt.close(fig)
 
 
-def plot_steg_distributions(runs: Path, output: Path) -> None:
-    variants = [("Local", "ps_steg_local_preliminary"), ("History-aware", "ps_steg_history_preliminary")]
+def plot_steg_distributions(local_steg: Path, history_steg: Path, output: Path) -> None:
+    variants = [("Local", local_steg), ("History-aware", history_steg)]
     targets = [("DNAEdep_keV", "DNA energy deposition (keV)"), ("TotalSB", "Total strand breaks"),
                ("TotalDSB", "Total double-strand breaks")]
     fig, axes = plt.subplots(2, 3, figsize=(12, 7), constrained_layout=True)
-    for row, (label, folder) in enumerate(variants):
-        frame = pd.read_csv(runs / folder / "validation_preview.csv.gz")
+    for row, (label, run_dir) in enumerate(variants):
+        frame = pd.read_csv(run_dir / "validation_preview.csv.gz")
         for col, (target, xlabel) in enumerate(targets):
             ax = axes[row, col]
             truth = frame[target].to_numpy()
@@ -129,8 +136,28 @@ def plot_steg_distributions(runs: Path, output: Path) -> None:
             ax.grid(alpha=0.15)
             if row == 0 and col == 2:
                 ax.legend(frameon=False)
-    fig.suptitle("Early StEG distribution check (5 training epochs)", fontsize=14)
+    fig.suptitle("StEG generated-versus-simulated distributions", fontsize=14)
     fig.savefig(output / "steg_distributions.png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_steg_training(local_steg: Path, history_steg: Path, output: Path) -> None:
+    fig, ax = plt.subplots(figsize=(8, 5), constrained_layout=True)
+    for label, run_dir, colour in [
+        ("Local", local_steg, COLOURS["local"]),
+        ("History-aware", history_steg, COLOURS["history"]),
+    ]:
+        history = pd.DataFrame(json.loads((run_dir / "history.json").read_text()))
+        ax.plot(history["epoch"], history["train_loss"], color=colour, alpha=0.45,
+                label=f"{label}: training")
+        ax.plot(history["epoch"], history["validation_loss"], color=colour, linewidth=2,
+                label=f"{label}: validation")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Diffusion noise-prediction loss")
+    ax.set_title("StEG training convergence")
+    ax.grid(alpha=0.2)
+    ax.legend(frameon=False)
+    fig.savefig(output / "steg_training_history.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -139,12 +166,17 @@ def main() -> None:
     parser.add_argument("--data", type=Path, default=Path("data/processed/ps_response.csv.gz"))
     parser.add_argument("--runs", type=Path, default=Path("runs"))
     parser.add_argument("--output", type=Path, default=Path("runs/ps_model_figures"))
+    parser.add_argument("--local-steg-dir", type=Path)
+    parser.add_argument("--history-steg-dir", type=Path)
     args = parser.parse_args()
+    local_steg = args.local_steg_dir or args.runs / "ps_steg_local_preliminary"
+    history_steg = args.history_steg_dir or args.runs / "ps_steg_history_preliminary"
     args.output.mkdir(parents=True, exist_ok=True)
     data = pd.read_csv(args.data)
-    plot_overview(data, args.runs, args.output)
+    plot_overview(data, args.runs, local_steg, history_steg, args.output)
     plot_baseline_metrics(args.runs, args.output)
-    plot_steg_distributions(args.runs, args.output)
+    plot_steg_distributions(local_steg, history_steg, args.output)
+    plot_steg_training(local_steg, history_steg, args.output)
     print(f"Wrote figures to {args.output}")
 
 
