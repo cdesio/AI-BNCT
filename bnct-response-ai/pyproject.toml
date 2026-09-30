@@ -1,0 +1,36 @@
+[project]
+name = "bnct-response-ai"
+version = "0.1.0"
+description = "Direct-distance surrogate models for single-particle BNCT transport and DNA damage"
+requires-python = ">=3.11"
+dependencies = [
+  "joblib",
+  "matplotlib",
+  "numpy",
+  "pandas",
+  "scikit-learn",
+  "torch",
+  "uproot",
+]
+
+[project.scripts]
+bnct-build-dataset = "bnct_response.data:main"
+bnct-train-baseline = "bnct_response.baseline:main"
+bnct-train-steg = "bnct_response.steg:main"
+bnct-sample-response = "bnct_response.sample:main"
+bnct-plot-results = "bnct_response.plot_results:main"
+bnct-train-ps-baseline = "bnct_response.ps_baseline:main"
+bnct-predict-ps = "bnct_response.ps_predict:main"
+bnct-generate-ps = "bnct_response.ps_generate:main"
+bnct-plot-ps-models = "bnct_response.plot_ps_models:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

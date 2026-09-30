@@ -1,0 +1,32 @@
+{
+  "cases": [
+    {
+      "case_id": "alpha_1p47",
+      "particle": "alpha",
+      "transport_root": "alpha_100_seed1234_ps.root",
+      "dna_root": "alpha_100_parallel_seed1234_dna.root",
+      "damage_csv": "alpha_100_parallel_seed1234_damage.csv"
+    },
+    {
+      "case_id": "alpha_1p78",
+      "particle": "alpha",
+      "transport_root": "alpha_1p78_100_seed1234_ps.root",
+      "dna_root": "alpha_1p78_100_seed1234_dna.root",
+      "damage_csv": "alpha_1p78_100_seed1234_damage.csv"
+    },
+    {
+      "case_id": "lithium_0p84",
+      "particle": "lithium",
+      "transport_root": "lithium_0p84_100_seed1234_ps.root",
+      "dna_root": "lithium_0p84_100_seed1234_dna.root",
+      "damage_csv": "lithium_0p84_100_seed1234_damage.csv"
+    },
+    {
+      "case_id": "lithium_1p01",
+      "particle": "lithium",
+      "transport_root": "lithium_1p01_100_seed1234_ps.root",
+      "dna_root": "lithium_1p01_100_seed1234_dna.root",
+      "damage_csv": "lithium_1p01_100_seed1234_damage.csv"
+    }
+  ]
+}

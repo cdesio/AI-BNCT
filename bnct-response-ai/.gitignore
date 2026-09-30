@@ -1,0 +1,9 @@
+data/processed/
+runs/
+.venv/
+.pytest_cache/
+.matplotlib/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.DS_Store
