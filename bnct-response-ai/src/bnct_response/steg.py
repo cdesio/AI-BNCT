@@ -11,7 +11,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.preprocessing import QuantileTransformer
+from sklearn.preprocessing import QuantileTransformer, StandardScaler
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -98,6 +98,15 @@ def generate(
     return value
 
 
+def inverse_steg_output(
+    values: np.ndarray, transformer, metadata: dict
+) -> np.ndarray:
+    restored = transformer.inverse_transform(values)
+    if metadata.get("output_transform", "quantile") == "log_standard":
+        restored = np.expm1(restored)
+    return restored
+
+
 def train_steg(
     data_dir: Path,
     output_dir: Path,
@@ -107,6 +116,13 @@ def train_steg(
     diffusion_steps: int,
     device_name: str,
     seed: int,
+    width: int = 256,
+    layers: int = 5,
+    learning_rate: float = 2e-4,
+    weight_decay: float = 1e-5,
+    output_transform: str = "quantile",
+    early_stopping_patience: int = 0,
+    min_epochs: int = 1,
 ) -> dict:
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -141,18 +157,30 @@ def train_steg(
     train_condition = condition_transformer.fit_transform(train[condition_columns]).astype(np.float32)
     validation_condition = condition_transformer.transform(validation[condition_columns]).astype(np.float32)
 
-    output_transformer = QuantileTransformer(
-        n_quantiles=min(1000, len(train)), output_distribution="normal",
-        subsample=None, random_state=seed,
-    )
-    train_output = output_transformer.fit_transform(train[output_columns]).astype(np.float32)
-    validation_output = output_transformer.transform(validation[output_columns]).astype(np.float32)
+    if output_transform == "quantile":
+        output_transformer = QuantileTransformer(
+            n_quantiles=min(1000, len(train)), output_distribution="normal",
+            subsample=None, random_state=seed,
+        )
+        train_output = output_transformer.fit_transform(train[output_columns])
+        validation_output = output_transformer.transform(validation[output_columns])
+    elif output_transform == "log_standard":
+        output_transformer = StandardScaler()
+        train_output = output_transformer.fit_transform(np.log1p(train[output_columns]))
+        validation_output = output_transformer.transform(np.log1p(validation[output_columns]))
+    else:
+        raise ValueError("output_transform must be 'quantile' or 'log_standard'")
+    train_output = train_output.astype(np.float32)
+    validation_output = validation_output.astype(np.float32)
 
     device = torch.device(device_name)
     model = ConditionalStEG(
-        output_dim=len(output_columns), condition_dim=train_condition.shape[1]
+        output_dim=len(output_columns), condition_dim=train_condition.shape[1],
+        width=width, layers=layers,
     ).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=2e-4, weight_decay=1e-5)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=learning_rate, weight_decay=weight_decay
+    )
     _, _, alpha_bar = _schedule(diffusion_steps, device)
     loader = DataLoader(
         TensorDataset(torch.from_numpy(train_condition), torch.from_numpy(train_output)),
@@ -164,6 +192,7 @@ def train_steg(
     history = []
     best_validation = float("inf")
     best_state = None
+    epochs_without_improvement = 0
     for epoch in range(1, epochs + 1):
         model.train()
         losses = []
@@ -205,6 +234,16 @@ def train_steg(
         if validation_loss < best_validation:
             best_validation = validation_loss
             best_state = {name: value.detach().cpu() for name, value in model.state_dict().items()}
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+        if (
+            early_stopping_patience > 0
+            and epoch >= min_epochs
+            and epochs_without_improvement >= early_stopping_patience
+        ):
+            print(json.dumps({"early_stopping_epoch": epoch}))
+            break
 
     output_dir.mkdir(parents=True, exist_ok=True)
     metadata = {
@@ -214,9 +253,17 @@ def train_steg(
         "condition_dim": int(train_condition.shape[1]),
         "output_dim": len(output_columns),
         "diffusion_steps": diffusion_steps,
-        "epochs": epochs,
+        "epochs": len(history),
+        "requested_epochs": epochs,
         "seed": seed,
         "best_validation_loss": best_validation,
+        "width": width,
+        "layers": layers,
+        "learning_rate": learning_rate,
+        "weight_decay": weight_decay,
+        "output_transform": output_transform,
+        "early_stopping_patience": early_stopping_patience,
+        "min_epochs": min_epochs,
     }
     torch.save({"state_dict": best_state, "metadata": metadata}, output_dir / "model.pt")
     joblib.dump(
@@ -235,7 +282,7 @@ def train_steg(
         model, validation_condition_tensor[preview_indices], len(output_columns),
         diffusion_steps, device,
     ).cpu().numpy()
-    generated = output_transformer.inverse_transform(generated_scaled)
+    generated = inverse_steg_output(generated_scaled, output_transformer, metadata)
     if stage.startswith("ps_"):
         if "DNAEdep_keV" in output_columns:
             generated[:, output_columns.index("DNAEdep_keV")] = np.clip(
@@ -291,10 +338,21 @@ def main() -> None:
     parser.add_argument("--diffusion-steps", type=int, default=100)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--seed", type=int, default=20260923)
+    parser.add_argument("--width", type=int, default=256)
+    parser.add_argument("--layers", type=int, default=5)
+    parser.add_argument("--learning-rate", type=float, default=2e-4)
+    parser.add_argument("--weight-decay", type=float, default=1e-5)
+    parser.add_argument(
+        "--output-transform", choices=["quantile", "log_standard"], default="quantile"
+    )
+    parser.add_argument("--early-stopping-patience", type=int, default=0)
+    parser.add_argument("--min-epochs", type=int, default=1)
     args = parser.parse_args()
     metadata = train_steg(
         args.data_dir, args.output_dir, args.stage, args.epochs,
         args.batch_size, args.diffusion_steps, args.device, args.seed,
+        args.width, args.layers, args.learning_rate, args.weight_decay,
+        args.output_transform, args.early_stopping_patience, args.min_epochs,
     )
     print(json.dumps(metadata, indent=2))
 

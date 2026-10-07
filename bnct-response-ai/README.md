@@ -208,6 +208,26 @@ Step 1 samples damage occurrence from the calibrated probability. Step 2 is
 called only for positive samples and jointly generates the five damage counts.
 Energy deposition remains the Extra Trees point prediction in this version.
 
+### Positive-damage StEG parameter sweep
+
+The StEG CLI exposes `--width`, `--layers`, `--learning-rate`,
+`--weight-decay`, `--output-transform`, `--min-epochs`, and
+`--early-stopping-patience`. Checkpoints store these settings and remain
+compatible with older checkpoints that used the default 256-wide, five-layer
+network.
+
+Run the four sequential GPU variants with:
+
+```bash
+bash scripts/run_positive_steg_sweep.sh
+```
+
+The sweep compares 50 versus 100 diffusion steps, two network widths, and
+quantile-normal versus `log1p + standardise` outputs. Every model is evaluated
+automatically. Evaluation reports both raw generated counts and counts after
+the physical consistency constraints, making constraint-induced TotalSB
+inflation visible.
+
 The baseline reports three damage views: direct-distance prediction from the
 query alone, an oracle diagnostic using true local transport, and a chained
 diagnostic using point-predicted transport. The sampler uses the direct-distance

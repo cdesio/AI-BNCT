@@ -53,6 +53,10 @@ def main() -> None:
             "true_zero_fraction": float((truth == 0).mean()),
             "generated_zero_fraction": float((sample == 0).mean()),
             "sample_mae": float(np.mean(np.abs(truth - sample))),
+            "raw_generated_mean": float(generated[f"RawGenerated{target}"].mean()),
+            "raw_generated_zero_fraction": float(
+                (generated[f"RawGenerated{target}"] == 0).mean()
+            ),
         }
 
     keep = [
@@ -60,7 +64,8 @@ def main() -> None:
         "EntryEnergy_MeV", "Distance_um", "DNAEdep_keV", "AnyDamage", "AnyDSB",
     ] + PS_GENERATIVE_COUNT_TARGETS
     result = pd.concat(
-        [test[keep].reset_index(drop=True), generated.filter(regex="^Generated")], axis=1
+        [test[keep].reset_index(drop=True), generated.filter(regex="^(Generated|RawGenerated)")],
+        axis=1,
     )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     result.to_csv(args.output_dir / "test_generated.csv.gz", index=False)

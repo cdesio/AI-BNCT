@@ -13,7 +13,7 @@ import torch
 from .ps_predict import load_phase_space
 from .ps_two_step import calibrated_probability
 from .schema import PS_GENERATIVE_COUNT_TARGETS
-from .steg import ConditionalStEG, generate
+from .steg import ConditionalStEG, generate, inverse_steg_output
 
 
 def generate_two_step(
@@ -49,7 +49,10 @@ def generate_two_step(
     positive_indices = np.flatnonzero(positive)
     if len(positive_indices):
         device = torch.device(device_name)
-        model = ConditionalStEG(metadata["output_dim"], metadata["condition_dim"]).to(device)
+        model = ConditionalStEG(
+            metadata["output_dim"], metadata["condition_dim"],
+            width=metadata.get("width", 256), layers=metadata.get("layers", 5),
+        ).to(device)
         model.load_state_dict(checkpoint["state_dict"])
         model.eval()
         for start in range(0, len(positive_indices), batch_size):
@@ -61,9 +64,10 @@ def generate_two_step(
                 model, torch.from_numpy(condition).to(device), metadata["output_dim"],
                 metadata["diffusion_steps"], device,
             ).cpu().numpy()
-            values = transformers["output"].inverse_transform(scaled)
+            values = inverse_steg_output(scaled, transformers["output"], metadata)
             counts[indices] = np.clip(np.rint(values), 0, None).astype(int)
 
+    raw_outputs = pd.DataFrame(counts.copy(), columns=PS_GENERATIVE_COUNT_TARGETS)
     outputs = pd.DataFrame(counts, columns=PS_GENERATIVE_COUNT_TARGETS)
     outputs["TotalCDSB"] = np.minimum(outputs["TotalCDSB"], outputs["TotalDSB"])
     minimum_breaks = outputs["TotalSSB"] + outputs["TotalCSSB"] + 2 * outputs["TotalDSB"]
@@ -74,7 +78,10 @@ def generate_two_step(
     outputs["DNAEdep_keV"] = edep
     outputs["P_AnyDamage"] = probability
     outputs["RawP_AnyDamage"] = raw_probability
-    return pd.concat([repeated.reset_index(drop=True), outputs.add_prefix("Generated")], axis=1)
+    return pd.concat([
+        repeated.reset_index(drop=True), raw_outputs.add_prefix("RawGenerated"),
+        outputs.add_prefix("Generated"),
+    ], axis=1)
 
 
 def main() -> None:

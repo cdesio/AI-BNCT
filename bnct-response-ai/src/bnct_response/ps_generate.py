@@ -12,7 +12,7 @@ import torch
 
 from .ps_predict import load_phase_space
 from .schema import PS_GENERATIVE_COUNT_TARGETS
-from .steg import ConditionalStEG, generate
+from .steg import ConditionalStEG, generate, inverse_steg_output
 
 
 def main() -> None:
@@ -42,7 +42,10 @@ def main() -> None:
     ).astype(np.float32)
 
     device = torch.device(args.device)
-    model = ConditionalStEG(metadata["output_dim"], metadata["condition_dim"]).to(device)
+    model = ConditionalStEG(
+        metadata["output_dim"], metadata["condition_dim"],
+        width=metadata.get("width", 256), layers=metadata.get("layers", 5),
+    ).to(device)
     model.load_state_dict(checkpoint["state_dict"])
     model.eval()
     generated_scaled = generate(
@@ -52,7 +55,7 @@ def main() -> None:
         metadata["diffusion_steps"],
         device,
     ).cpu().numpy()
-    generated = transformers["output"].inverse_transform(generated_scaled)
+    generated = inverse_steg_output(generated_scaled, transformers["output"], metadata)
     outputs = pd.DataFrame(generated, columns=metadata["output_columns"])
     outputs["DNAEdep_keV"] = outputs["DNAEdep_keV"].clip(lower=0)
     for target in PS_GENERATIVE_COUNT_TARGETS:
