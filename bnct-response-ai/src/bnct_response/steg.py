@@ -22,6 +22,7 @@ from .schema import (
     DAMAGE_TARGETS,
     PS_INPUT_COLUMNS,
     PS_HISTORY_INPUT_COLUMNS,
+    PS_GENERATIVE_COUNT_TARGETS,
     PS_RESPONSE_TARGETS,
     TRANSPORT_TARGETS,
 )
@@ -109,10 +110,13 @@ def train_steg(
 ) -> dict:
     torch.manual_seed(seed)
     np.random.seed(seed)
-    data_file = "ps_response.csv.gz" if stage.startswith("ps_response") else "response.csv.gz"
+    data_file = "ps_response.csv.gz" if stage.startswith("ps_") else "response.csv.gz"
     frame = pd.read_csv(data_dir / data_file)
     train = frame[frame["split"] == "train"].copy()
     validation = frame[frame["split"] == "val"].copy()
+    if stage == "ps_positive_damage":
+        train = train[train["AnyDamage"] == 1].copy()
+        validation = validation[validation["AnyDamage"] == 1].copy()
     if stage == "transport":
         condition_columns = CONDITION_COLUMNS
         output_columns = TRANSPORT_TARGETS
@@ -125,9 +129,12 @@ def train_steg(
     elif stage == "ps_response_history":
         condition_columns = PS_HISTORY_INPUT_COLUMNS
         output_columns = PS_RESPONSE_TARGETS
+    elif stage == "ps_positive_damage":
+        condition_columns = PS_INPUT_COLUMNS
+        output_columns = PS_GENERATIVE_COUNT_TARGETS
     else:
         raise ValueError(
-            "stage must be 'transport', 'damage', 'ps_response' or 'ps_response_history'"
+            "unsupported StEG stage"
         )
 
     condition_transformer = make_preprocessor(condition_columns)
@@ -229,10 +236,11 @@ def train_steg(
         diffusion_steps, device,
     ).cpu().numpy()
     generated = output_transformer.inverse_transform(generated_scaled)
-    if stage.startswith("ps_response"):
-        generated[:, output_columns.index("DNAEdep_keV")] = np.clip(
-            generated[:, output_columns.index("DNAEdep_keV")], 0, None
-        )
+    if stage.startswith("ps_"):
+        if "DNAEdep_keV" in output_columns:
+            generated[:, output_columns.index("DNAEdep_keV")] = np.clip(
+                generated[:, output_columns.index("DNAEdep_keV")], 0, None
+            )
         for column in output_columns:
             if column != "DNAEdep_keV":
                 index = output_columns.index(column)
@@ -247,8 +255,10 @@ def train_steg(
             generated[:, ssb_index] + generated[:, cssb_index] + 2 * generated[:, dsb_index]
         )
         generated[:, sb_index] = np.maximum(generated[:, sb_index], minimum_breaks)
+        if stage == "ps_positive_damage":
+            generated[:, sb_index] = np.maximum(generated[:, sb_index], 1)
     descriptor_columns = ["case_id", "SeedID", "EventID", "Distance_um"]
-    if stage.startswith("ps_response"):
+    if stage.startswith("ps_"):
         descriptor_columns = [
             "case_id", "SeedID", "EventID", "Particle", "EntryEnergy_MeV", "Distance_um"
         ]
@@ -270,7 +280,10 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
         "--stage",
-        choices=["transport", "damage", "ps_response", "ps_response_history"],
+        choices=[
+            "transport", "damage", "ps_response", "ps_response_history",
+            "ps_positive_damage",
+        ],
         required=True,
     )
     parser.add_argument("--epochs", type=int, default=100)

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from bnct_response.data import _aggregate_steps, _assign_splits
-from bnct_response.ps_two_step import _f1_threshold
+from bnct_response.ps_two_step import _f1_threshold, _probability_logit
 
 
 def test_aggregate_steps_uses_last_post_energy_and_sums_deposition():
@@ -36,3 +36,9 @@ def test_two_step_threshold_selects_best_f1_cutoff():
     probability = np.array([0.1, 0.4, 0.6, 0.9])
     threshold = _f1_threshold(truth, probability)
     assert 0.4 < threshold <= 0.6
+
+
+def test_probability_logit_is_finite_at_boundaries():
+    values = _probability_logit(np.array([0.0, 0.5, 1.0]))
+    assert np.isfinite(values).all()
+    assert values[0, 0] < 0 < values[2, 0]

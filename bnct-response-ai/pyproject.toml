@@ -25,6 +25,8 @@ bnct-generate-ps = "bnct_response.ps_generate:main"
 bnct-plot-ps-models = "bnct_response.plot_ps_models:main"
 bnct-train-ps-two-step = "bnct_response.ps_two_step:main"
 bnct-plot-two-step = "bnct_response.plot_two_step:main"
+bnct-generate-ps-two-step = "bnct_response.ps_two_step_generate:main"
+bnct-evaluate-ps-two-step-steg = "bnct_response.evaluate_two_step_steg:main"
 
 [build-system]
 requires = ["setuptools>=68"]

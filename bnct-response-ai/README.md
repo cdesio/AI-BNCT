@@ -168,10 +168,45 @@ PYTHONPATH=src python -m bnct_response.plot_two_step
 
 The gate threshold is selected on validation primaries by maximum F1 and then
 held fixed for the test set. Because the Extra Trees classifier uses balanced
-class weights, its raw probabilities are ranking scores rather than calibrated
-damage probabilities. Use `PredictedAnyDamage` for the tuned binary gate;
-probability calibration should be evaluated separately before interpreting
-`P_AnyDamage` quantitatively.
+class weights, its raw probabilities are calibrated with a logistic model fit
+only on validation primaries. `P_AnyDamage` is the calibrated probability and
+`RawP_AnyDamage` retains the original classifier score.
+
+### Two-step StEG
+
+Train the local StEG second step only on damaged voxels, preferably on a GPU:
+
+```bash
+python -m bnct_response.steg \
+  --data-dir data/processed_1k \
+  --output-dir runs/ps_steg_positive_damage_1k \
+  --stage ps_positive_damage \
+  --epochs 200 --diffusion-steps 100 --batch-size 1024 --device cuda
+```
+
+Evaluate one stochastic response per held-out test voxel:
+
+```bash
+python -m bnct_response.evaluate_two_step_steg \
+  --data-dir data/processed_1k \
+  --gate-model-dir runs/ps_two_step_1k \
+  --steg-model-dir runs/ps_steg_positive_damage_1k \
+  --output-dir runs/ps_two_step_steg_eval_1k \
+  --device cuda
+```
+
+For a new phase-space ROOT file, generate repeated stochastic responses with:
+
+```bash
+python -m bnct_response.ps_two_step_generate INPUT_PS.root \
+  --gate-model-dir runs/ps_two_step_1k \
+  --steg-model-dir runs/ps_steg_positive_damage_1k \
+  --output generated.csv --samples-per-row 10 --device cuda
+```
+
+Step 1 samples damage occurrence from the calibrated probability. Step 2 is
+called only for positive samples and jointly generates the five damage counts.
+Energy deposition remains the Extra Trees point prediction in this version.
 
 The baseline reports three damage views: direct-distance prediction from the
 query alone, an oracle diagnostic using true local transport, and a chained

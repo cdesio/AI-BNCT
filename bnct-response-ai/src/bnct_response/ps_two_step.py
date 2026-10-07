@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     average_precision_score,
+    brier_score_loss,
     f1_score,
     mean_absolute_error,
     mean_squared_error,
@@ -18,6 +19,7 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+from sklearn.linear_model import LogisticRegression
 
 from .baseline import make_classifier, make_regressor
 from .schema import PS_HISTORY_INPUT_COLUMNS, PS_INPUT_COLUMNS, PS_RESPONSE_COUNT_TARGETS
@@ -43,6 +45,15 @@ def _predict_counts(model, frame: pd.DataFrame, input_columns: list[str]) -> np.
     return np.expm1(model.predict(frame[input_columns])).clip(min=0)
 
 
+def _probability_logit(probability: np.ndarray) -> np.ndarray:
+    clipped = np.clip(probability, 1e-6, 1 - 1e-6)
+    return np.log(clipped / (1 - clipped)).reshape(-1, 1)
+
+
+def calibrated_probability(calibrator: LogisticRegression, probability: np.ndarray) -> np.ndarray:
+    return calibrator.predict_proba(_probability_logit(probability))[:, 1]
+
+
 def train_ps_two_step(
     data_dir: Path, output_dir: Path, input_mode: str = "local", seed: int = 20261007
 ) -> dict:
@@ -63,11 +74,17 @@ def train_ps_two_step(
         damaged_train[input_columns], np.log1p(damaged_train[PS_RESPONSE_COUNT_TARGETS])
     )
 
-    validation_probability = damage_gate.predict_proba(validation[input_columns])[:, 1]
+    validation_raw_probability = damage_gate.predict_proba(validation[input_columns])[:, 1]
+    calibrator = LogisticRegression(random_state=seed + 3)
+    calibrator.fit(
+        _probability_logit(validation_raw_probability), validation["AnyDamage"].to_numpy()
+    )
+    validation_probability = calibrated_probability(calibrator, validation_raw_probability)
     threshold = _f1_threshold(validation["AnyDamage"].to_numpy(), validation_probability)
 
     edep_prediction = np.expm1(edep.predict(test[input_columns])).clip(min=0)
-    damage_probability = damage_gate.predict_proba(test[input_columns])[:, 1]
+    raw_damage_probability = damage_gate.predict_proba(test[input_columns])[:, 1]
+    damage_probability = calibrated_probability(calibrator, raw_damage_probability)
     damage_decision = damage_probability >= threshold
     conditional_counts = _predict_counts(positive_counts, test, input_columns)
     gated_counts = conditional_counts.copy()
@@ -98,6 +115,7 @@ def train_ps_two_step(
             "threshold": threshold,
             "roc_auc": float(roc_auc_score(truth_damage, damage_probability)),
             "average_precision": float(average_precision_score(truth_damage, damage_probability)),
+            "brier_score": float(brier_score_loss(truth_damage, damage_probability)),
             "f1": float(f1_score(truth_damage, damage_decision)),
             "precision": float(precision_score(truth_damage, damage_decision)),
             "recall": float(recall_score(truth_damage, damage_decision)),
@@ -114,6 +132,7 @@ def train_ps_two_step(
     joblib.dump({
         "edep": edep,
         "damage_gate": damage_gate,
+        "damage_calibrator": calibrator,
         "positive_counts": positive_counts,
         "damage_threshold": threshold,
         "input_columns": input_columns,
@@ -129,6 +148,7 @@ def train_ps_two_step(
     ] + PS_RESPONSE_COUNT_TARGETS
     predictions = test[identifiers].reset_index(drop=True)
     predictions["PredictedDNAEdep_keV"] = edep_prediction
+    predictions["RawP_AnyDamage"] = raw_damage_probability
     predictions["P_AnyDamage"] = damage_probability
     predictions["PredictedAnyDamage"] = damage_decision.astype(int)
     for index, target in enumerate(PS_RESPONSE_COUNT_TARGETS):
