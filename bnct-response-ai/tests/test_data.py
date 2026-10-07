@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from bnct_response.data import _aggregate_steps, _assign_splits
+from bnct_response.ps_two_step import _f1_threshold
 
 
 def test_aggregate_steps_uses_last_post_energy_and_sums_deposition():
@@ -28,3 +29,10 @@ def test_splits_never_separate_one_primary():
     counts = result.groupby(["case_id", "SeedID", "EventID"])["split"].nunique()
     assert counts.eq(1).all()
     assert set(result.split) == {"train", "val", "test"}
+
+
+def test_two_step_threshold_selects_best_f1_cutoff():
+    truth = np.array([0, 0, 1, 1])
+    probability = np.array([0.1, 0.4, 0.6, 0.9])
+    threshold = _f1_threshold(truth, probability)
+    assert 0.4 < threshold <= 0.6

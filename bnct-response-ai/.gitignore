@@ -1,4 +1,4 @@
-data/processed/
+data/processed*/
 runs/
 .venv/
 .pytest_cache/

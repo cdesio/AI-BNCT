@@ -137,6 +137,42 @@ The present pilot has only two initial energies per species and one direction.
 Interpolation across a broad energy or angular domain requires a deliberately
 sampled simulation campaign.
 
+## Two-step damage model
+
+The two-step Extra Trees model separates sparse damage occurrence from the
+positive damage response:
+
+```text
+phase-space entry -> damage gate
+                  -> no damage: zero counts
+                  -> damage: conditional positive-count regressor
+```
+
+Build the larger dataset and train local and history-aware variants with:
+
+```bash
+PYTHONPATH=src python -m bnct_response.data \
+  --input-dir ../data_1k --manifest configs/data_1k.json \
+  --output-dir data/processed_1k
+
+PYTHONPATH=src python -m bnct_response.ps_two_step \
+  --data-dir data/processed_1k --output-dir runs/ps_two_step_1k \
+  --input-mode local
+
+PYTHONPATH=src python -m bnct_response.ps_two_step \
+  --data-dir data/processed_1k --output-dir runs/ps_two_step_history_1k \
+  --input-mode history
+
+PYTHONPATH=src python -m bnct_response.plot_two_step
+```
+
+The gate threshold is selected on validation primaries by maximum F1 and then
+held fixed for the test set. Because the Extra Trees classifier uses balanced
+class weights, its raw probabilities are ranking scores rather than calibrated
+damage probabilities. Use `PredictedAnyDamage` for the tuned binary gate;
+probability calibration should be evaluated separately before interpreting
+`P_AnyDamage` quantitatively.
+
 The baseline reports three damage views: direct-distance prediction from the
 query alone, an oracle diagnostic using true local transport, and a chained
 diagnostic using point-predicted transport. The sampler uses the direct-distance
