@@ -218,6 +218,8 @@ void Parse(int &argc, char **argv)
   parser->AddCommand("-chemOFF",
                      Command::WithoutOption,
                      "Deactivate chemistry");
+  parser->AddCommand("--save-exits", Command::WithoutOption,
+                     "Save primary voxel exit/stopping states (phase-space input only)");
   parser->AddCommand("-sugar",
                      Command::WithOption,
                      "Deoxyribose position file",

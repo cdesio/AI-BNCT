@@ -88,5 +88,33 @@ Pass `-sugar` or `-histone` only when replaying with a different DNA geometry.
 The output ROOT file follows the AlphaGlue layout: `EventEdep`, `Direct`,
 `Indirect`, and `Info` ntuples under the `ntuple` directory.
 
+## Optional voxel transitions
+
+Add `--save-exits` to a phase-space replay to write `ntuple/VoxelExit`.
+One row is written per event, joined by `EventNum` and the upstream identifiers.
+`Outcome=1` means first outward cube crossing; `Outcome=2` means zero kinetic
+energy inside the cube; `Outcome=0` means no recognised outcome and must be
+excluded from transition training. Missing outcomes have placeholder zero fields.
+Positions are local nm, energy is MeV, and directions are dimensionless.
+`Particle` records the exiting/stopping charge state. Alpha and lithium charge
+exchange replacement tracks are followed as the same physical ion. This assumes
+the current single-ion DNA physics; it is not a general nuclear branching tracker.
+Recording does not kill tracks or consume random numbers.
+
+Use `-chemOFF --save-exits` for physical-only replay. To recover transitions
+matched to old damage, use the original Geant4 version, physics, phase-space
+binary, geometry, seed and threading/run configuration. A short truncated replay
+can change event seed scheduling relative to a long run; a same-seed smoke test
+alone does not establish historical recovery. Compare physical outputs with:
+
+```bash
+python compare_replay_physics.py original_dna.root replay_dna.root
+```
+
+The comparison reports exact event-deposition and input-record differences.
+Chemistry-on/off agreement on a new controlled pair is separate from agreement
+with a historical run. Record transitions with chemistry enabled for new joint
+exit-and-damage training datasets.
+
 For strand-break clustering and per-Z summaries, see
 [`bnct-clustering`](../bnct-clustering/README.md).

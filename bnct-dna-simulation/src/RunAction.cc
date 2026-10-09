@@ -260,6 +260,18 @@ void RunAction::CreateNtuple()
     analysisManager->CreateNtupleDColumn(4, "world_y_nm");
     analysisManager->CreateNtupleDColumn(4, "world_z_nm");
     analysisManager->FinishNtuple(4);
+    if (parser->GetCommandIfActive("--save-exits"))
+    {
+      analysisManager->CreateNtuple("VoxelExit", "Primary first voxel exit or terminal state");
+      for (const auto name : {"EventNum", "upstream_eventID", "upstream_voxelID",
+                              "upstream_seedID", "upstream_trackID", "Outcome"})
+        analysisManager->CreateNtupleIColumn(5, name);
+      for (const auto name : {"Energy_MeV", "LocalX_nm", "LocalY_nm", "LocalZ_nm",
+                              "DirX", "DirY", "DirZ"})
+        analysisManager->CreateNtupleDColumn(5, name);
+      analysisManager->CreateNtupleSColumn(5, "Particle");
+      analysisManager->FinishNtuple(5);
+    }
   }
 
 }

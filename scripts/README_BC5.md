@@ -50,6 +50,78 @@ cmake --build bnct-clustering/build -j4
 
 ## Generate and submit
 
+### Exit-and-damage pilot: 100 primaries per case
+
+On branch `codex/dna-voxel-exits`, rebuild both executables using the patched
+lithium installation above (including the updated DNA executable). Then load
+`clustering/conda` for the Python generator and run from the BC5 checkout:
+
+```bash
+bash scripts/prepare_bc5_exit_pilot.sh
+# Inspect the generated macros and DNA commands before submitting:
+rg '/primary/energy|/run/beamOn|save-exits' jobs/exits100_*/upstream.mac jobs/exits100_*/dna.sbatch
+bash scripts/prepare_bc5_exit_pilot.sh submit
+```
+
+This prepares alpha 1.47/1.78 MeV and lithium 0.84/1.01 MeV, each with
+100 upstream primaries, seed 1234, a 4 x 4 x 40 grid of 300 nm voxels,
+four DNA threads and 32 GB DNA memory. Each voxel-entry record becomes a DNA
+event, so the DNA event count will exceed 100. Chemistry stays enabled:
+`-chemOFF` is deliberately absent. `--save-exits` adds `ntuple/VoxelExit`
+to the same DNA ROOT file as deposition and damage. DNA is now checkpointed
+every 50 voxel-entry events, processed sequentially inside each DNA job.
+The checkpoint runner merges all DNA ntuples (including `VoxelExit`, empty
+damage trees, and per-batch `Info`) before clustering runs. It does not merge
+non-ntuple ROOT objects. Batch-local `EventNum` is shifted consistently in every
+tree; upstream identifiers remain unchanged.
+
+Start with the 10-primary alpha 1.47 MeV test on BC5:
+
+```bash
+bash scripts/prepare_bc5_exit_pilot.sh prepare-test
+bash scripts/prepare_bc5_exit_pilot.sh submit-test
+```
+
+Inspect `jobs/exits10_alpha_1p47_seed1234/*_checkpoints/*.timing.json`
+and batch logs to estimate runtime before submitting the 100-primary cases.
+The test also uses 50-event checkpoints: these are DNA entries, not primaries.
+
+If a DNA job fails or times out, wait until it has stopped, then resume using:
+
+```bash
+bash jobs/exits100_alpha_1p47_seed1234/submit_all.sh dna
+```
+
+This submits a new DNA job and a new dependent clustering job. The runner
+validates and skips completed batches, reruns the incomplete batch, and merges
+only once all expected batches are complete. Cancel any old clustering job left
+with a failed dependency. Never run two DNA jobs against the same run directory.
+Checkpoint files become final only after event counts and input identifiers have
+been validated. Final merged output is also validated. Input/executable/macro
+hashes and batch settings protect against accidentally mixing configurations.
+Keep geometry and Geant4 modules unchanged when resuming. Batch seeds are
+`seed + batch index`; a batched simulation is not a bitwise replay of an unbatched
+run. Exit states and damage are nevertheless generated together in each event.
+
+Completed batches survive a job timeout, but the currently running batch may be
+lost; a single long event cannot be resumed mid-event. Reduce
+`--checkpoint-events` in a new run if timing shows 50 events is too large.
+This is sequential checkpointing, not the earlier parallel Slurm-array scheme.
+Existing generated uncheckpointed directories are not overwritten: regenerate
+into a fresh output directory or use a different `--name`.
+
+Preparation refuses existing run directories; submission is a separate explicit
+step. Generate on BC5, not locally, because batch scripts contain absolute paths.
+Resources and module paths follow the existing configuration and have not been
+rechecked against live BC5 availability. Check scheduler/resource requirements
+before submission. The wrapper does not submit unless passed `submit`.
+
+After completion, check all four pipelines for upstream ROOT/binary, DNA ROOT,
+damage CSV and damage-by-z CSV. Inspect `VoxelExit` alongside `PS_data` and
+`EventEdep`: row counts and event identifiers should match; report unresolved
+`Outcome=0` separately and exclude those rows from transition training. Validate
+both alpha and lithium exit/stopping states on BC5 before using the dataset.
+
 ```bash
 python scripts/make_bc5_jobs.py --particle alpha --name alpha_1p47 \
   --events 100000 --seed 6069075 \

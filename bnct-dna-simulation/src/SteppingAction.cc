@@ -70,6 +70,37 @@ void SteppingAction::UserSteppingAction(const G4Step *step)
 
   const G4String &volumeName = step->GetPreStepPoint()->GetPhysicalVolume()->GetName();
 
+  // Observe the first primary transition without changing transport or RNG use.
+  auto parser = CommandLineParser::GetParser();
+  const auto generator = static_cast<const PrimaryGeneratorAction*>(
+      G4RunManager::GetRunManager()->GetUserPrimaryGeneratorAction());
+  const auto name = step->GetTrack()->GetParticleDefinition()->GetParticleName();
+  const auto source = generator->primaryName;
+  const G4bool primaryCarrier =
+      (source == "alpha" && (name == "alpha" || name == "alpha+" || name == "helium")) ||
+      (source == "Li7" && (name == "lithium+++" || name == "lithium++" ||
+                           name == "lithium+" || name == "lithium")) ||
+      (step->GetTrack()->GetParentID() == 0 && source != "alpha" && source != "Li7");
+  if (parser->GetCommandIfActive("--save-exits") && IsPhaseSpaceInputActive(parser)
+      && primaryCarrier && !fpEventAction->HasVoxelOutcome())
+  {
+    const auto post = step->GetPostStepPoint();
+    const auto nextVolume = post->GetPhysicalVolume();
+    G4int outcome = 0;
+    if (volumeName == "chromatinSegment" &&
+        (!nextVolume || nextVolume->GetName() == "TrackingVol"))
+      outcome = 1;
+    if (outcome == 0 && (volumeName == "chromatinSegment" || volumeName == "sugar0" ||
+                        volumeName == "sugar1" || volumeName == "histone"))
+    {
+      if (post->GetKineticEnergy() == 0) outcome = 2;
+    }
+    if (outcome != 0)
+      fpEventAction->RecordVoxelOutcome(outcome, post->GetKineticEnergy(),
+          post->GetPosition(), post->GetMomentumDirection(),
+          step->GetTrack()->GetParticleDefinition()->GetParticleName());
+  }
+
   if (volumeName == "sugar0")
   {
     flagVolume = 1;

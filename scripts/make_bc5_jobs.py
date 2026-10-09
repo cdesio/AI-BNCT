@@ -50,12 +50,17 @@ def geant4_setup(args):
     return setup
 
 
-def make_macro(particle, events):
+def make_macro(particle, events, energy_mev=None):
     source = SOURCE_ROOT / "bnct-voxel-ps/macros" / f"{particle}_300nm_4x4x40.mac"
     macro = source.read_text()
     macro, count = re.subn(r"(?m)^/run/beamOn\s+\d+\s*$", f"/run/beamOn {events}", macro)
     if count != 1:
         raise ValueError(f"Expected one /run/beamOn command in {source}")
+    if energy_mev is not None:
+        macro, count = re.subn(r"(?m)^/primary/energy\s+.*$",
+                              f"/primary/energy {energy_mev:g} MeV", macro)
+        if count != 1:
+            raise ValueError(f"Expected one /primary/energy command in {source}")
     return macro.rstrip() + "\n"
 
 
@@ -95,7 +100,12 @@ def make_scripts(args, run_dir, prefix):
     dna += f"test -f {shell(root / 'bnct-dna-simulation/geometryFiles' / HISTONE_NAME)}\n"
     dna += f"cd {shell(dna_exe.parent)}\n"
     dna += f"test -x {shell(dna_exe)}\n"
-    dna += f"time {shell(dna_exe)} -mac {shell(run_dir / 'dna.mac')} -in {shell(phase_bin)} -out {shell(dna_root)} -seed {args.seed}\n"
+    exit_option = " --save-exits" if args.save_exits else ""
+    if args.checkpoint_events:
+        dna += "module load clustering/conda\n"
+        dna += f"time python {shell(root / 'scripts/checkpoint_dna.py')} --exe {shell(dna_exe)} --macro {shell(run_dir / 'dna.mac')} --input {shell(phase_bin)} --output {shell(dna_root)} --seed {args.seed} --batch-size {args.checkpoint_events}{exit_option}\n"
+    else:
+        dna += f"time {shell(dna_exe)} -mac {shell(run_dir / 'dna.mac')} -in {shell(phase_bin)} -out {shell(dna_root)} -seed {args.seed}{exit_option}\n"
     dna += f"test -s {shell(dna_root)}\n"
 
     clustering = slurm_header("cluster", run_dir, prefix, args.clustering_time, 1,
@@ -139,7 +149,7 @@ cluster_job=${cluster_job%%;*}
 echo "Submitted clustering: $cluster_job"
 """
     return {
-        "upstream.mac": make_macro(args.particle, args.events),
+        "upstream.mac": make_macro(args.particle, args.events, args.energy_mev),
         "dna.mac": make_dna_macro(args.dna_cpus),
         "upstream.sbatch": upstream,
         "dna.sbatch": dna,
@@ -153,6 +163,10 @@ def main():
     parser.add_argument("--particle", choices=("alpha", "lithium"), required=True)
     parser.add_argument("--events", type=int, required=True, help="Number of upstream primaries")
     parser.add_argument("--seed", type=int, required=True)
+    parser.add_argument("--energy-mev", type=float, help="Override the template primary energy in MeV")
+    parser.add_argument("--save-exits", action="store_true", help="Record DNA voxel exits alongside chemistry/damage")
+    parser.add_argument("--checkpoint-events", type=int, default=0,
+                        help="DNA voxel-entry events per restartable batch (0 disables)")
     parser.add_argument("--name", help="Run label (default: particle name)")
     parser.add_argument("--project-root", type=Path, default=SOURCE_ROOT)
     parser.add_argument("--upstream-exe", type=Path, help="Upstream executable (default: bnct-voxel-ps/build/bnctVoxelPS)")
@@ -175,6 +189,10 @@ def main():
     args = parser.parse_args()
     if args.events <= 0 or args.seed <= 0 or args.dna_cpus <= 0:
         parser.error("Events, seed, and DNA CPUs must be positive")
+    if args.checkpoint_events < 0:
+        parser.error("Checkpoint events cannot be negative")
+    if args.energy_mev is not None and not (0 < args.energy_mev < float("inf")):
+        parser.error("Energy must be finite and positive")
     name = args.name or args.particle
     if not re.fullmatch(r"[A-Za-z0-9_-]+", name):
         parser.error("Run name must contain only letters, numbers, '_' or '-'")

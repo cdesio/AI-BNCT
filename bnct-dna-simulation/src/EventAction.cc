@@ -72,6 +72,11 @@ EventAction::~EventAction()
 
 void EventAction::BeginOfEventAction(const G4Event *event)
 {
+  fVoxelOutcome = 0;
+  fVoxelEnergy = 0;
+  fVoxelPosition = G4ThreeVector();
+  fVoxelDirection = G4ThreeVector();
+  fVoxelParticle = "";
   fEdep = 0.;
   fTrackStartKE = 0;
   fTrackStartFound = false;
@@ -89,7 +94,7 @@ void EventAction::BeginOfEventAction(const G4Event *event)
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 
-void EventAction::EndOfEventAction(const G4Event *)
+void EventAction::EndOfEventAction(const G4Event *event)
 {
   G4double projectedRange = sqrt(GetStartTrackPos().diff2(GetEndTrackPos()));
 
@@ -97,6 +102,28 @@ void EventAction::EndOfEventAction(const G4Event *)
   // Command *command(0);
   if (parser->GetCommandIfActive("-out") == 0)
     return;
+
+  if (parser->GetCommandIfActive("--save-exits") && IsPhaseSpaceInputActive(parser))
+  {
+    auto analysis = G4AnalysisManager::Instance();
+    const auto generator = static_cast<const PrimaryGeneratorAction*>(
+        G4RunManager::GetRunManager()->GetUserPrimaryGeneratorAction());
+    analysis->FillNtupleIColumn(5, 0, event->GetEventID());
+    analysis->FillNtupleIColumn(5, 1, generator->upstreamEventID);
+    analysis->FillNtupleIColumn(5, 2, generator->upstreamVoxelID);
+    analysis->FillNtupleIColumn(5, 3, generator->upstreamSeedID);
+    analysis->FillNtupleIColumn(5, 4, generator->upstreamTrackID);
+    analysis->FillNtupleIColumn(5, 5, fVoxelOutcome);
+    analysis->FillNtupleDColumn(5, 6, fVoxelEnergy / MeV);
+    analysis->FillNtupleDColumn(5, 7, fVoxelPosition.x() / nm);
+    analysis->FillNtupleDColumn(5, 8, fVoxelPosition.y() / nm);
+    analysis->FillNtupleDColumn(5, 9, fVoxelPosition.z() / nm);
+    analysis->FillNtupleDColumn(5, 10, fVoxelDirection.x());
+    analysis->FillNtupleDColumn(5, 11, fVoxelDirection.y());
+    analysis->FillNtupleDColumn(5, 12, fVoxelDirection.z());
+    analysis->FillNtupleSColumn(5, 13, fVoxelParticle);
+    analysis->AddNtupleRow(5);
+  }
 
   G4AnalysisManager *analysisManager = G4AnalysisManager::Instance();
   if ((IsPhaseSpaceInputActive(parser) == 0) && (parser->GetCommandIfActive("-photonPS") == 0))

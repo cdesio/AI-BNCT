@@ -75,6 +75,17 @@ public:
 
   void AddPathLength(G4double val) { fpathLengthTotal += val; }
   G4double Getdkill(){return dkill;}
+  G4bool HasVoxelOutcome() const { return fVoxelOutcome != 0; }
+  void RecordVoxelOutcome(G4int outcome, G4double energy,
+                          const G4ThreeVector& position, const G4ThreeVector& direction,
+                          const G4String& particle) {
+    if (HasVoxelOutcome()) return;
+    fVoxelOutcome = outcome;
+    fVoxelEnergy = energy;
+    fVoxelPosition = position;
+    fVoxelDirection = direction;
+    fVoxelParticle = particle;
+  }
 
   std::vector<G4double> fTrackMeanKE;
   G4KDTree *fPositions0Event;
@@ -83,6 +94,11 @@ public:
   G4KDTree *fPositionsBase1Event;
 
 private:
+  G4int fVoxelOutcome{0};
+  G4double fVoxelEnergy{0};
+  G4ThreeVector fVoxelPosition;
+  G4ThreeVector fVoxelDirection;
+  G4String fVoxelParticle;
   G4double fEdep;
   G4double fTrackStartKE;
   G4double fTrackEndKE;
